@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>SynthEx AI</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2300f0c0'/><stop offset='1' stop-color='%23a78bfa'/></linearGradient></defs><text x='50' y='68' text-anchor='middle' font-family='monospace' font-weight='bold' font-size='40' fill='%230a0e17'>SX</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body,#root{height:100%;overflow:hidden}
+body{background:#0a0e17;color:#e2e8f0;font-family:'Outfit','Segoe UI',sans-serif}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(100,116,139,.2);border-radius:10px}
+*{scrollbar-width:thin;scrollbar-color:rgba(100,116,139,.2) transparent}
+textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{background:rgba(100,116,139,.15);border-radius:10px}
+.gridbg{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:linear-gradient(rgba(0,240,192,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,240,192,.03) 1px,transparent 1px);background-size:60px 60px;-webkit-mask-image:radial-gradient(ellipse 80% 70% at 50% 30%,#000 20%,transparent 70%)}
+.gorb{position:fixed;border-radius:50%;filter:blur(100px);opacity:.12;z-index:0;pointer-events:none}
+@keyframes of{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(30px,-40px) scale(1.1)}66%{transform:translate(-20px,30px) scale(.9)}}
+@keyframes mi{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pu{0%,100%{opacity:1}50%{opacity:.4}}
+@keyframes wp{0%,100%{box-shadow:0 0 30px #00f0c030,0 0 60px #00f0c015}50%{box-shadow:0 0 50px #00f0c050,0 0 80px #00f0c025}}
+@keyframes dotB{0%,80%,100%{transform:translateY(0);opacity:.3}40%{transform:translateY(-4px);opacity:1}}
+.mc h1{font-size:18px;font-weight:700;margin:12px 0 6px}.mc h2{font-size:16px;font-weight:700;margin:12px 0 6px}.mc h3{font-size:14px;font-weight:700;margin:10px 0 4px}
+.mc p{margin-bottom:8px;line-height:1.7}.mc p:last-child{margin-bottom:0}.mc strong{color:#00f0c0;font-weight:600}.mc em{color:#94a3b8}
+.mc a{color:#00f0c0;text-decoration:underline;user-select:all}.mc a:hover{color:#34d399}
+.mc pre{background:#0a0e17;border:1px solid #1e293b;border-radius:8px;padding:14px;margin:10px 0;overflow-x:auto;position:relative;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.mc code{font-family:'JetBrains Mono',monospace;font-size:12.5px}.mc .ic{background:#1e293b;padding:2px 6px;border-radius:4px;font-size:12px;color:#00f0c0}
+.mc ul,.mc ol{margin:8px 0;padding-left:20px}.mc li{margin-bottom:4px;line-height:1.6}
+.mc blockquote{border-left:3px solid rgba(0,240,192,.25);padding-left:12px;color:#94a3b8;margin:8px 0}
+.cpb{position:absolute;top:8px;right:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#64748b;cursor:pointer;padding:3px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;transition:.15s}.cpb:hover{color:#00f0c0}
+.itx:focus{border-color:rgba(0,240,192,.25)!important;box-shadow:0 0 0 3px rgba(0,240,192,.06),0 0 20px rgba(0,240,192,.12)}
+.sug:hover{border-color:rgba(0,240,192,.25)!important;transform:translateY(-1px);background:#111d30!important}
+.ci:hover{background:rgba(30,41,59,.3)}.mo:hover{background:rgba(30,41,59,.3)}
+.ncb:hover{background:linear-gradient(135deg,rgba(0,240,192,.1),rgba(167,139,250,.06))!important;border-color:rgba(0,240,192,.3)!important}
+.sndb:hover:not(:disabled){box-shadow:0 0 25px rgba(0,240,192,.3);transform:scale(1.05)}.stpb:hover{box-shadow:0 0 20px rgba(239,68,68,.3)}
+.ab{background:none;border:none;color:#475569;cursor:pointer;padding:4px;border-radius:4px;display:flex;align-items:center;transition:.15s}.ab:hover{color:#00f0c0;background:rgba(0,240,192,.06)}
+.dov{position:fixed;inset:0;z-index:50;background:rgba(0,240,192,.05);border:2px dashed rgba(0,240,192,.4);display:flex;align-items:center;justify-content:center;pointer-events:none}
+.mc2{padding:6px 14px;border-radius:20px;border:1px solid #1e293b;background:#111827;color:#94a3b8;font-size:12px;font-weight:500;cursor:pointer;display:flex;align-items:center;gap:5;transition:.15s;font-family:'Outfit',sans-serif;white-space:nowrap}
+.mc2:hover{border-color:rgba(0,240,192,.3);color:#e2e8f0}.mc2.on{border-color:rgba(0,240,192,.4);color:#00f0c0;background:rgba(0,240,192,.06)}
+.pm{position:absolute;bottom:calc(100% + 8px);left:0;background:#111827;border:1px solid #1e293b;border-radius:12px;padding:6px 0;min-width:220px;box-shadow:0 8px 32px rgba(0,0,0,.5);z-index:10;animation:mi .15s ease}
+.pi{padding:10px 16px;display:flex;align-items:center;gap:10px;color:#94a3b8;font-size:13px;cursor:pointer;transition:.1s}.pi:hover{background:rgba(0,240,192,.04);color:#e2e8f0}
+.pii{width:20px;display:flex;justify-content:center;flex-shrink:0}.pdv{height:1px;background:#1e293b;margin:4px 0}
+.dlc{margin:10px 0;padding:12px 16px;background:#0f1629;border:1px solid #1e293b;border-radius:10px;display:flex;align-items:center;gap:12px}.dlc:hover{border-color:rgba(0,240,192,.2)}
+.dli{width:36px;height:36px;border-radius:8px;background:linear-gradient(135deg,#00f0c020,#a78bfa10);border:1px solid #1e293b;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0}
+.dlf{flex:1;min-width:0}.dln{font-size:13px;font-weight:600}.dls{font-size:11px;color:#475569;margin-top:2px}
+.dlb{padding:6px 14px;border-radius:8px;background:rgba(0,240,192,.1);border:1px solid rgba(0,240,192,.2);color:#00f0c0;font-size:12px;font-weight:600;cursor:pointer;font-family:'Outfit',sans-serif;transition:.15s}.dlb:hover{background:rgba(0,240,192,.2)}
+.login-card{background:#111827;border-radius:16px;border:1px solid #1e293b;padding:32px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+.login-btn{width:100%;padding:14px 20px;border-radius:12px;border:1px solid #2d3748;background:#0d1220;color:#e2e8f0;font-size:15px;font-weight:600;font-family:'Outfit',sans-serif;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:.2s}
+.login-btn:hover{border-color:rgba(0,240,192,.3);background:#111d30}
+.login-input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid #1e293b;background:#0a0e17;color:#e2e8f0;font-size:14px;font-family:'Outfit',sans-serif;outline:none;margin-bottom:12px;transition:border-color .2s}
+.login-input:focus{border-color:rgba(0,240,192,.3)}
+.login-submit{width:100%;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:700;font-family:'Outfit',sans-serif;cursor:pointer;transition:.2s}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
+<script type="text/babel">
+const{useState,useRef,useEffect,useCallback}=React;
+
+// API endpoint — points to our serverless function, NOT directly to Anthropic
+const API="/api/chat";
+const BTN=42;
+
+const MODELS=[
+  {id:"claude-opus-4-6",nm:"Opus 4.6",desc:"Most intelligent",badge:"Pro",c:"#a78bfa",bg:"#a78bfa20"},
+  {id:"claude-sonnet-4-5-20250514",nm:"Sonnet 4.5",desc:"Fast & capable",badge:"Balanced",c:"#00f0c0",bg:"#00f0c020"},
+  {id:"claude-haiku-4-5-20251001",nm:"Haiku 4.5",desc:"Lightning fast",badge:"Speed",c:"#60a5fa",bg:"#60a5fa20"},
+];
+const MODES=[
+  {icon:"</>",label:"Code",prompt:"Focus on writing clean, efficient code with explanations."},
+  {icon:"✏️",label:"Write",prompt:"Focus on creative and professional writing."},
+  {icon:"📚",label:"Learn",prompt:"Explain concepts clearly with examples."},
+];
+const SUGS=[
+  {icon:"⚡",text:"Write a Python web scraper",p:"Write a Python script that scrapes a website and exports data to CSV"},
+  {icon:"📘",text:"Explain async/await in JS",p:"Explain how async/await works in JavaScript with examples"},
+  {icon:"🔧",text:"Help me debug my code",p:"Debug this code and explain what's wrong with it"},
+  {icon:"🏗️",text:"Design a REST API",p:"Design a REST API for a task management app with authentication"},
+];
+
+const SYS=`You are SynthEx, an AI assistant powered by Claude. Respond naturally and conversationally, like Claude does. Be warm, helpful, and concise. Use markdown formatting when appropriate. Use code blocks with language tags for code. Avoid over-formatting with excessive bullet points or headers — prefer natural prose paragraphs.
+
+When asked to create/generate any file, output the content in a code block with a filename comment:
+\`\`\`language
+// filename: example.py
+...content...
+\`\`\`
+
+For PDFs, generate styled HTML:
+\`\`\`html
+// filename: document.pdf
+<!DOCTYPE html><html>...content...</html>
+\`\`\``;
+
+function parseMd(t){let h=t||"";h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>`<pre data-lang="${l}"><code>${c.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}</code></pre>`);h=h.replace(/`([^`]+)`/g,'<code class="ic">$1</code>');h=h.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");h=h.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,"<em>$1</em>");h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");h=h.replace(/^> (.+)$/gm,"<blockquote>$1</blockquote>");h=h.replace(/^- (.+)$/gm,"<li>$1</li>");h=h.replace(/^\d+\. (.+)$/gm,"<li>$1</li>");h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" target="_blank">$1</a>');h=h.replace(/(?<!["=])(https?:\/\/[^\s<)]+)/g,'<a href="$1" target="_blank">$1</a>');h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block)(.*\S.*)$/gm,"<p>$1</p>");return h;}
+
+function extractFiles(c){const f=[];const r=/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g;let m;while((m=r.exec(c))!==null)f.push({lang:m[1],name:m[2].trim(),code:m[3].trim()});return f;}
+function dlFile(n,c){if(n.endsWith(".pdf")){const w=window.open("","_blank");if(w){w.document.write(c);w.document.close();setTimeout(()=>w.print(),500);}return;}const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+
+function MsgHtml({content}){
+  const ref=useRef(null);const dl=extractFiles(content);
+  useEffect(()=>{if(!ref.current)return;ref.current.querySelectorAll("pre").forEach(pre=>{if(pre.querySelector(".cpb"))return;const b=document.createElement("button");b.className="cpb";b.textContent="Copy";b.onclick=()=>{navigator.clipboard.writeText(pre.querySelector("code")?.textContent||pre.textContent);b.textContent="Copied!";setTimeout(()=>b.textContent="Copy",1500);};pre.style.position="relative";pre.appendChild(b);});},[content]);
+  return <div><div ref={ref} dangerouslySetInnerHTML={{__html:parseMd(content)}}/>{dl.length>0&&<div style={{marginTop:8}}>{dl.map((f,i)=>{const ext=f.name.split(".").pop();const ic={py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕"};return<div key={i} className="dlc"><div className="dli">{ic[ext]||"📄"}</div><div className="dlf"><div className="dln">{f.name}</div><div className="dls">{f.name.endsWith(".pdf")?"PDF":f.lang+" · "+f.code.length+"ch"}</div></div><button className="dlb" onClick={()=>dlFile(f.name,f.code)}>{f.name.endsWith(".pdf")?"Save as PDF":"Download"}</button></div>;})}</div>}</div>;
+}
+
+function speakT(t,cb){speechSynthesis.cancel();const c=t.replace(/```[\s\S]*?```/g," code block ").replace(/[#*`_~\[\]()]/g,"").replace(/<[^>]*>/g,"").replace(/\n+/g,". ");const u=new SpeechSynthesisUtterance(c);u.rate=1;const v=speechSynthesis.getVoices();const p=v.find(x=>x.name.includes("Google")&&x.lang.startsWith("en"))||v.find(x=>x.lang.startsWith("en"));if(p)u.voice=p;u.onend=cb;u.onerror=cb;speechSynthesis.speak(u);}
+
+const Ic={
+  Copy:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>,
+  Spk:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>,
+  Mut:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>,
+  Reg:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>,
+  L:()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>,
+  R:()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>,
+  X:()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  Pls:()=><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  Fl:()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>,
+  Im:()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>,
+  Gl:()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z"/></svg>,
+  Ch:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#00f0c0" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>,
+  Br:()=><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a7 7 0 017 7c0 2.5-1.3 4.7-3.2 6H8.2C6.3 13.7 5 11.5 5 9a7 7 0 017-7z"/><path d="M9 22h6"/><path d="M10 18h4"/></svg>,
+  Snd:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0a0e17" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
+  Out:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>,
+  Goo:()=><svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,
+};
+
+// LOGIN
+function Login({onLogin}){
+  const[email,setEmail]=useState("");const[ld,setLd]=useState(false);
+  function doEmail(){if(!email.trim())return;setLd(true);setTimeout(()=>onLogin({email:email.trim(),name:email.split("@")[0]}),500);}
+  return<div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
+    <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/>
+    <div style={{width:400,maxWidth:"90vw",position:"relative",zIndex:1}}>
+      <div style={{textAlign:"center",marginBottom:40}}>
+        <div style={{width:70,height:70,borderRadius:18,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:24,color:"#0a0e17",boxShadow:"0 0 40px #00f0c030",marginBottom:16}}>SX</div>
+        <h1 style={{fontSize:32,fontWeight:800,background:"linear-gradient(135deg,#00f0c0,#60a5fa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>SynthEx</h1>
+        <p style={{color:"#64748b",fontSize:14,marginTop:8}}>Sign in to save your conversations</p>
+      </div>
+      <div className="login-card">
+        <button className="login-btn" onClick={()=>{setLd(true);setTimeout(()=>onLogin({email:"google-user",name:"User",method:"google"}),600);}} disabled={ld}><Ic.Goo/>Continue with Google</button>
+        <div style={{display:"flex",alignItems:"center",gap:16,margin:"24px 0"}}><div style={{flex:1,height:1,background:"#1e293b"}}/><span style={{color:"#475569",fontSize:12,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>or</span><div style={{flex:1,height:1,background:"#1e293b"}}/></div>
+        <input className="login-input" type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")doEmail();}} placeholder="Enter your email address"/>
+        <button className="login-submit" onClick={doEmail} disabled={!email.trim()||ld} style={{background:email.trim()?"linear-gradient(135deg,#00f0c0,#34d399)":"#1e293b",color:email.trim()?"#0a0e17":"#475569"}}>Continue with email</button>
+        <button onClick={()=>onLogin({email:"guest",name:"Guest"})} style={{width:"100%",marginTop:16,padding:10,background:"none",border:"none",color:"#475569",fontSize:13,cursor:"pointer",fontFamily:"'Outfit'"}} onMouseEnter={e=>e.currentTarget.style.color="#94a3b8"} onMouseLeave={e=>e.currentTarget.style.color="#475569"}>Continue as guest</button>
+      </div>
+    </div>
+  </div>;
+}
+
+// MAIN CHAT
+function ChatApp({user,onLogout}){
+  const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(true);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);const[ld,setLd]=useState(false);
+  const endR=useRef(null);const abR=useRef(null);const sR=useRef(false);const fR=useRef(null);const mR=useRef(null);const svT=useRef(null);
+
+  const msgs=cur&&chats[cur]?chats[cur].messages:[];
+  const scr=useCallback(()=>{setTimeout(()=>endR.current?.scrollIntoView({behavior:"smooth"}),50);},[]);
+  useEffect(scr,[msgs.length,msgs[msgs.length-1]?.content,scr]);
+  const cids=Object.keys(chats).filter(id=>chats[id].messages.length>0).reverse();
+  useEffect(()=>{speechSynthesis.getVoices();},[]);
+  useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
+
+  // Load/save with localStorage
+  useEffect(()=>{try{const d=localStorage.getItem("sx-c-"+user.email);if(d)setChats(JSON.parse(d));}catch{}setLd(true);},[user.email]);
+  useEffect(()=>{if(!ld)return;clearTimeout(svT.current);svT.current=setTimeout(()=>{try{const s={};for(const[k,v]of Object.entries(chats))if(v.messages.length>0)s[k]=v;localStorage.setItem("sx-c-"+user.email,JSON.stringify(s));}catch{}},800);},[chats,ld,user.email]);
+
+  function fresh(){setCur(null);setInput("");setFiles([]);setMode(null);}
+  function useSug(p){if(sR.current)return;setInput("");doSend(p);}
+  function onKey(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();if(!sR.current)doSend();}}
+  function hFiles(fl){Array.from(fl).forEach(f=>{if(!["image/png","image/jpeg","image/gif","image/webp","application/pdf"].includes(f.type)&&!f.type.startsWith("text/"))return;const r=new FileReader();r.onload=()=>{setFiles(p=>[...p,{name:f.name,type:f.type,data:r.result.split(",")[1],preview:f.type.startsWith("image/")?r.result:null}]);};r.readAsDataURL(f);});setPm(false);}
+  function bC(text,af){if(!af.length)return text;const parts=[];af.forEach(f=>{if(f.type.startsWith("image/"))parts.push({type:"image",source:{type:"base64",media_type:f.type,data:f.data}});else if(f.type==="application/pdf")parts.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:f.data}});else parts.push({type:"text",text:"[File: "+f.name+"]\n"+atob(f.data)});});if(text)parts.push({type:"text",text});return parts;}
+
+  async function doSend(ov){
+    const text=(ov||input).trim();if((!text&&!files.length)||sR.current)return;
+    sR.current=true;setStm(true);setInput("");const af=[...files];setFiles([]);
+    let cid=cur;if(!cid||!chats[cid])cid="c_"+Date.now();
+    const title=(!chats[cid]||!chats[cid].messages.length)?(text||af[0]?.name||"Chat").substring(0,45):chats[cid].title;
+    const prev=chats[cid]?.messages||[];
+    setChats(p=>({...p,[cid]:{title,messages:[...prev,{role:"user",content:text,files:af.map(f=>({name:f.name,preview:f.preview,type:f.type}))},{role:"assistant",content:"",model:mdl.nm,versions:[],versionIdx:0}]}}));
+    setCur(cid);
+    const sys=mode?SYS+"\n\n"+mode.prompt:SYS;let full="";
+    try{
+      abR.current=new AbortController();
+      const am=[];for(const m of[...prev,{role:"user",content:bC(text,af)}]){if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}
+      const body={model:mdl.id,max_tokens:16000,system:sys,messages:am,stream:true};
+      if(ws)body.tools=[{type:"web_search_20250305",name:"web_search"}];
+      if(et){body.thinking={type:"enabled",budget_tokens:10000};}
+      const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});
+      if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error?.message||"API Error "+resp.status);}
+      const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;
+      while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}for(const line of dec.decode(value,{stream:true}).split("\n")){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}
+    }catch(err){if(err.name!=="AbortError"){full=full||"⚠️ **Error:** "+err.message;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:full};return{...pr,[cid]:{...ch,messages:m}};});}}
+    if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:full,versions:[full],versionIdx:0};return{...pr,[cid]:{...ch,messages:m}};});
+    sR.current=false;setStm(false);abR.current=null;
+  }
+
+  async function regen(mi){
+    if(sR.current||!cur)return;sR.current=true;setStm(true);const cid=cur;let full="";
+    try{abR.current=new AbortController();const cm=chats[cid].messages;const am=[];
+    for(let i=0;i<mi;i++){const m=cm[i];if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}
+    setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:""};return{...pr,[cid]:{...ch,messages:m}};});
+    const sys=mode?SYS+"\n\n"+mode.prompt:SYS;const body={model:mdl.id,max_tokens:16000,system:sys,messages:am,stream:true};if(ws)body.tools=[{type:"web_search_20250305",name:"web_search"}];
+    const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});
+    if(!resp.ok)throw new Error("API Error "+resp.status);const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;
+    while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}for(const line of dec.decode(value,{stream:true}).split("\n")){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}
+    }catch(err){if(err.name!=="AbortError")setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:full||"⚠️ "+err.message};return{...pr,[cid]:{...ch,messages:m}};});}
+    if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];const pv=m[mi];const vs=[...(pv.versions||[]),full];m[mi]={...pv,content:full,versions:vs,versionIdx:vs.length-1,model:mdl.nm};return{...pr,[cid]:{...ch,messages:m}};});
+    sR.current=false;setStm(false);abR.current=null;
+  }
+
+  function switchV(mi,dir){setChats(pr=>{const ch=pr[cur];if(!ch)return pr;const m=[...ch.messages];const msg=m[mi];if(!msg.versions||msg.versions.length<=1)return pr;let ni=(msg.versionIdx||0)+dir;if(ni<0)ni=msg.versions.length-1;if(ni>=msg.versions.length)ni=0;m[mi]={...msg,versionIdx:ni,content:msg.versions[ni]};return{...pr,[cur]:{...ch,messages:m}};});}
+  function stop(){if(abR.current)abR.current.abort();sR.current=false;setStm(false);abR.current=null;}
+  function copyM(t){navigator.clipboard.writeText(t.replace(/\*\*/g,"").replace(/```\w*\n?/g,"").replace(/`/g,"").replace(/^#{1,3} /gm,""));}
+  function togSpk(i,t){if(spk===i){speechSynthesis.cancel();setSpk(null);}else{speakT(t,()=>setSpk(null));setSpk(i);}}
+
+  const wel=msgs.length===0;
+
+  return<div style={{display:"flex",height:"100vh",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Outfit','Segoe UI',sans-serif",position:"relative",overflow:"hidden"}} onDrop={e=>{e.preventDefault();setDg(false);hFiles(e.dataTransfer.files);}} onDragOver={e=>{e.preventDefault();setDg(true);}} onDragLeave={()=>setDg(false)}>
+    <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/><div className="gorb" style={{width:300,height:300,background:"#60a5fa",top:"40%",left:"50%",animation:"of 12s ease-in-out infinite 3s"}}/>
+    {dg&&<div className="dov"><span style={{color:"#00f0c0",fontSize:20,fontWeight:600}}>Drop files here</span></div>}
+    <input ref={fR} type="file" multiple accept="image/*,.pdf,.txt,.csv,.json,.js,.py,.html,.css,.md" style={{display:"none"}} onChange={e=>{hFiles(e.target.files);e.target.value="";}}/>
+
+    <aside style={{width:sb?280:0,minWidth:sb?280:0,background:"#0d1220",borderRight:sb?"1px solid #1e293b":"none",display:"flex",flexDirection:"column",transition:"all .3s",overflow:"hidden",position:"relative",zIndex:2}}>
+      <div style={{padding:20,borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:12,flexShrink:0}}><div style={{width:40,height:40,borderRadius:10,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:14,color:"#0a0e17",boxShadow:"0 0 20px #00f0c030"}}>SX</div><span style={{fontWeight:800,fontSize:22,background:"linear-gradient(135deg,#00f0c0,#60a5fa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>SynthEx</span></div>
+      <button className="ncb" onClick={fresh} style={{margin:"16px 16px 8px",padding:12,background:"linear-gradient(135deg,rgba(0,240,192,.06),rgba(167,139,250,.04))",border:"1px solid rgba(0,240,192,.15)",borderRadius:10,color:"#00f0c0",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18,lineHeight:1}}>+</span>New Chat</button>
+      <div style={{flex:1,overflowY:"auto",padding:8}}>{cids.map(id=><div key={id} className="ci" onClick={()=>setCur(id)} style={{padding:"10px 16px",borderRadius:8,cursor:"pointer",marginBottom:2,color:id===cur?"#00f0c0":"#94a3b8",fontSize:13,background:id===cur?"rgba(0,240,192,.04)":"transparent",border:id===cur?"1px solid rgba(0,240,192,.1)":"1px solid transparent",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{chats[id].title}</div>)}</div>
+      <div style={{padding:16,borderTop:"1px solid #1e293b",flexShrink:0}}>
+        <div style={{fontSize:11,fontWeight:600,color:"#475569",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8}}>Model</div>
+        {MODELS.map(m=><div key={m.id} className="mo" onClick={()=>setMdl(m)} style={{padding:"10px 12px",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",gap:10,marginBottom:4,background:mdl.id===m.id?"rgba(0,240,192,.03)":"transparent",border:mdl.id===m.id?"1px solid rgba(0,240,192,.12)":"1px solid transparent"}}><span style={{width:8,height:8,borderRadius:"50%",background:m.c,boxShadow:"0 0 8px "+m.c+"80",flexShrink:0}}/><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500}}>{m.nm}</div><div style={{fontSize:10,color:"#475569",marginTop:1}}>{m.desc}</div></div><span style={{fontSize:9,fontWeight:700,padding:"2px 6px",borderRadius:4,textTransform:"uppercase",background:m.bg,color:m.c}}>{m.badge}</span></div>)}
+      </div>
+      <div style={{padding:"12px 16px",borderTop:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10,flexShrink:0}}>
+        <div style={{width:30,height:30,borderRadius:8,background:"linear-gradient(135deg,#1e293b,#334155)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:600,color:"#94a3b8"}}>{user.name?.[0]?.toUpperCase()||"?"}</div>
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div><div style={{fontSize:10,color:"#475569"}}>{user.email==="guest"?"Guest":user.email}</div></div>
+        <button className="ab" onClick={onLogout} title="Sign out"><Ic.Out/></button>
+      </div>
+    </aside>
+
+    <main style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,position:"relative",zIndex:1}}>
+      <div style={{padding:"12px 20px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:12,background:"rgba(13,18,32,.8)",backdropFilter:"blur(20px)",flexShrink:0}}>
+        <button onClick={()=>setSb(!sb)} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:6,fontSize:18,lineHeight:1}}>☰</button>
+        <span style={{fontFamily:"'JetBrains Mono'",fontSize:12,color:mdl.c,background:mdl.c+"10",padding:"4px 10px",borderRadius:6,border:"1px solid "+mdl.c+"20",display:"flex",alignItems:"center",gap:6}}><span style={{width:6,height:6,borderRadius:"50%",background:mdl.c}}/>{mdl.nm}</span>
+        {mode&&<span style={{fontSize:11,color:"#475569",background:"#111827",padding:"3px 10px",borderRadius:6,border:"1px solid #1e293b"}}>{mode.icon} {mode.label}</span>}
+        {et&&<span style={{fontSize:11,color:"#a78bfa",background:"#a78bfa10",padding:"3px 10px",borderRadius:6,border:"1px solid #a78bfa20"}}>🧠 Think</span>}
+        <div style={{marginLeft:"auto",fontSize:12,color:"#475569",display:"flex",alignItems:"center",gap:6}}><span style={{width:6,height:6,borderRadius:"50%",background:"#34d399",animation:"pu 2s ease-in-out infinite"}}/>Online</div>
+      </div>
+      <div style={{flex:1,overflowY:"auto",padding:24,display:"flex",flexDirection:"column",gap:20}}>
+        {wel?<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:40,gap:20}}>
+          <div style={{width:80,height:80,borderRadius:20,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:28,color:"#0a0e17",animation:"wp 3s ease-in-out infinite"}}>SX</div>
+          <h1 style={{fontSize:32,fontWeight:800,background:"linear-gradient(135deg,#e2e8f0,#94a3b8)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>Hey{user.name!=="Guest"?", "+user.name:""}!</h1>
+          <p style={{color:"#94a3b8",fontSize:14,maxWidth:480,lineHeight:1.6}}>Upload files, search the web, generate code & PDFs. Powered by Claude.</p>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginTop:12,maxWidth:540,width:"100%"}}>{SUGS.map((s,i)=><div key={i} className="sug" onClick={()=>useSug(s.p)} style={{padding:"14px 16px",borderRadius:10,background:"#111827",border:"1px solid #1e293b",cursor:"pointer",textAlign:"left",transition:".2s"}}><div style={{fontSize:18,marginBottom:6}}>{s.icon}</div><div style={{fontSize:13,color:"#94a3b8",lineHeight:1.4}}>{s.text}</div></div>)}</div>
+        </div>:<>{msgs.map((msg,i)=>{
+          const ai=msg.role==="assistant";const typ=ai&&msg.content===""&&stm&&i===msgs.length-1;
+          const mi2=ai&&msg.model?MODELS.find(m=>m.nm===msg.model):null;const hv=ai&&msg.versions&&msg.versions.length>1;
+          return<div key={i} style={{display:"flex",gap:12,maxWidth:820,width:"100%",margin:"0 auto",flexDirection:ai?"row":"row-reverse",animation:"mi .3s ease"}}>
+            {ai?<div style={{width:32,height:32,borderRadius:8,flexShrink:0,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,color:"#0a0e17",alignSelf:"flex-start"}}>SX</div>:<div style={{width:32,height:32,borderRadius:8,flexShrink:0,background:"#111827",border:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:600,color:"#94a3b8",alignSelf:"flex-start"}}>You</div>}
+            <div style={{maxWidth:"calc(100% - 50px)",minWidth:0}}>
+              {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:8,overflow:"hidden",border:"1px solid #1e293b"}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:200,maxHeight:150,display:"block"}}/>:<div style={{padding:"8px 12px",background:"#111827",fontSize:12,color:"#94a3b8",display:"flex",alignItems:"center",gap:6}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
+              <div className={ai?"mc":""} style={{padding:"14px 18px",borderRadius:12,lineHeight:1.7,fontSize:14,background:ai?"#111827":"linear-gradient(135deg,rgba(0,240,192,.06),rgba(0,240,192,.03))",border:ai?"1px solid #1e293b":"1px solid rgba(0,240,192,.15)",userSelect:"text",wordBreak:"break-word"}}>
+                {typ?<div style={{display:"flex",alignItems:"center",gap:5,height:24}}>{[0,1,2].map(j=><span key={j} style={{width:7,height:7,borderRadius:"50%",background:"#00f0c0",display:"block",animation:"dotB 1.4s ease-in-out infinite "+j*.16+"s"}}/>)}</div>:ai?<MsgHtml content={msg.content}/>:<span style={{whiteSpace:"pre-wrap"}}>{msg.content}</span>}
+              </div>
+              {ai&&msg.content!==""&&!typ&&<div style={{display:"flex",alignItems:"center",gap:2,marginTop:6,flexWrap:"wrap"}}>
+                {mi2&&<span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono'",marginRight:8}}><span style={{width:5,height:5,borderRadius:"50%",background:mi2.c,boxShadow:"0 0 4px "+mi2.c+"60"}}/>{mi2.nm}</span>}
+                <button className="ab" onClick={()=>copyM(msg.content)} title="Copy"><Ic.Copy/></button>
+                <button className="ab" onClick={()=>togSpk(i,msg.content)} title={spk===i?"Stop":"Read"}>{spk===i?<Ic.Mut/>:<Ic.Spk/>}</button>
+                {!stm&&<button className="ab" onClick={()=>regen(i)} title="Regenerate"><Ic.Reg/></button>}
+                {hv&&<div style={{display:"flex",alignItems:"center",gap:2,marginLeft:6}}><button className="ab" onClick={()=>switchV(i,-1)}><Ic.L/></button><span style={{fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono'",minWidth:30,textAlign:"center"}}>{(msg.versionIdx||0)+1}/{msg.versions.length}</span><button className="ab" onClick={()=>switchV(i,1)}><Ic.R/></button></div>}
+              </div>}
+            </div>
+          </div>;})}</>}
+        <div ref={endR}/>
+      </div>
+      <div style={{padding:"10px 24px 14px",background:"linear-gradient(180deg,transparent,rgba(13,18,32,.95) 20%)",flexShrink:0}}>
+        <div style={{maxWidth:820,margin:"0 auto"}}>
+          <div style={{display:"flex",gap:6,marginBottom:8,justifyContent:"center",flexWrap:"wrap"}}>
+            {MODES.map((m,i)=><button key={i} className={"mc2"+(mode?.label===m.label?" on":"")} onClick={()=>setMode(mode?.label===m.label?null:m)}><span style={{fontSize:13}}>{m.icon}</span>{m.label}</button>)}
+            <button className={"mc2"+(et?" on":"")} onClick={()=>setEt(!et)} style={et?{borderColor:"rgba(167,139,250,.4)",color:"#a78bfa",background:"rgba(167,139,250,.06)"}:{}}><span style={{fontSize:13}}>🧠</span>Think</button>
+          </div>
+          {files.length>0&&<div style={{display:"flex",gap:8,marginBottom:8,flexWrap:"wrap",justifyContent:"center"}}>{files.map((f,i)=><div key={i} style={{position:"relative",borderRadius:8,overflow:"hidden",border:"1px solid #1e293b",background:"#111827"}}>{f.preview?<img src={f.preview} alt="" style={{width:60,height:60,objectFit:"cover",display:"block"}}/>:<div style={{padding:"8px 24px 8px 10px",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name.slice(0,18)}</div>}<button onClick={()=>setFiles(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:2,right:2,width:18,height:18,borderRadius:4,background:"rgba(0,0,0,.7)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#94a3b8"}}><Ic.X/></button></div>)}</div>}
+          <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
+            <div ref={mR} style={{position:"relative",flexShrink:0,height:BTN,display:"flex",alignItems:"center"}}>
+              <button onClick={()=>setPm(!pm)} style={{width:BTN,height:BTN,borderRadius:12,background:"#111827",border:"1px solid #1e293b",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:pm?"#00f0c0":"#64748b",transition:".15s",transform:pm?"rotate(45deg)":"none"}}><Ic.Pls/></button>
+              {pm&&<div className="pm"><div className="pi" onClick={()=>{fR.current?.click();setPm(false);}}><div className="pii"><Ic.Im/></div>Add files or photos</div><div className="pdv"/><div className="pi" onClick={()=>{setWs(!ws);setPm(false);}}><div className="pii"><Ic.Gl/></div>Web search<div style={{marginLeft:"auto"}}>{ws&&<Ic.Ch/>}</div></div><div className="pi" onClick={()=>{setEt(!et);setPm(false);}}><div className="pii"><Ic.Br/></div>Extended thinking<div style={{marginLeft:"auto"}}>{et&&<Ic.Ch/>}</div></div></div>}
+            </div>
+            <div style={{flex:1,position:"relative",display:"flex",alignItems:"flex-end"}}>
+              <textarea className="itx" value={input} onChange={e=>setInput(e.target.value)} onKeyDown={onKey} placeholder="Ask SynthEx anything..." rows={1} disabled={stm} style={{width:"100%",padding:"10px "+(BTN+14)+"px 10px 16px",background:"#0f1629",border:"1px solid #1e293b",borderRadius:14,color:"#e2e8f0",fontFamily:"'Outfit',sans-serif",fontSize:14,resize:"none",outline:"none",lineHeight:1.5,maxHeight:180,minHeight:BTN,transition:"border-color .2s,box-shadow .2s",opacity:stm?.5:1,overflowY:"hidden"}} onInput={e=>{e.target.style.height="auto";const sh=e.target.scrollHeight;if(sh<=130){e.target.style.height=Math.max(sh,BTN)+"px";e.target.style.overflowY="hidden";}else{e.target.style.height="130px";e.target.style.overflowY="auto";}}}/>
+              <div style={{position:"absolute",right:4,bottom:4}}>
+                {stm?<button className="stpb" onClick={stop} style={{width:34,height:34,borderRadius:10,background:"#ef4444",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><div style={{width:12,height:12,background:"white",borderRadius:2}}/></button>
+                :<button className="sndb" onClick={()=>doSend()} disabled={!input.trim()&&!files.length} style={{width:34,height:34,borderRadius:10,background:"linear-gradient(135deg,#00f0c0,#34d399)",border:"none",cursor:(input.trim()||files.length)?"pointer":"default",display:"flex",alignItems:"center",justifyContent:"center",opacity:(input.trim()||files.length)?1:.3,transition:".2s"}}><Ic.Snd/></button>}
+              </div>
+            </div>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:6,padding:"0 4px"}}><span style={{fontSize:11,color:"#334155"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}{!ws&&!et?"Shift+Enter for new line":""}</span><span style={{fontSize:11,color:"#475569"}}>Powered by <span style={{fontFamily:"'JetBrains Mono'",color:mdl.c}}>Claude {mdl.nm}</span></span></div>
+        </div>
+      </div>
+    </main>
+  </div>;
+}
+
+function App(){
+  const[user,setUser]=useState(null);const[ck,setCk]=useState(true);
+  useEffect(()=>{try{const d=localStorage.getItem("sx-user");if(d)setUser(JSON.parse(d));}catch{}setCk(false);},[]);
+  function login(u){setUser(u);try{localStorage.setItem("sx-user",JSON.stringify(u));}catch{}}
+  function logout(){setUser(null);try{localStorage.removeItem("sx-user");}catch{}}
+  if(ck)return<div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
+  return user?<ChatApp user={user} onLogout={logout}/>:<Login onLogin={login}/>;
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>
