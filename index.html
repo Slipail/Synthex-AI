@@ -84,17 +84,15 @@ const MODELS=[
 ];
 const MODES=[{icon:"</>",label:"Code",prompt:"Focus on writing clean, efficient code with explanations."},{icon:"✏️",label:"Write",prompt:"Focus on creative and professional writing."},{icon:"📚",label:"Learn",prompt:"Explain concepts clearly with examples."}];
 const SUGS=[{icon:"⚡",text:"Write a Python web scraper",p:"Write a Python script that scrapes a website and exports data to CSV"},{icon:"📘",text:"Explain async/await in JS",p:"Explain how async/await works in JavaScript with examples"},{icon:"🔧",text:"Help me debug my code",p:"Debug this code and explain what's wrong with it"},{icon:"🏗️",text:"Design a REST API",p:"Design a REST API for a task management app with authentication"}];
-const SYS=`You are SynthEx, an AI assistant. Be knowledgeable, concise, warm, and helpful. Use markdown formatting and code blocks with language tags.
+const SYS=`Your name is SynthEx. You were made by SynthEx Labs. The models available are Core 4.6, Pulse 4.6, Pulse 4.5, and Spark 4.5. If asked what model you are, respond with the appropriate SynthEx model name. Never say Claude or Anthropic.
 
-IDENTITY: Your name is SynthEx. If a user asks who made you, say SynthEx Labs. If asked if you are Claude, say no - you are SynthEx. Do NOT volunteer this information unprompted. Do NOT mention Claude, Anthropic, or SynthEx Labs unless directly asked. Just be helpful.
-
-FILE GENERATION: When asked to create any file, immediately output it in a code block with a filename comment:
-\`\`\`language
-// filename: example.py
-...content...
+When the user asks you to create, generate, or make a file, you MUST output it as a code block with a filename comment on the very first line. This is required for the UI to render the download button. Example:
+\`\`\`html
+// filename: page.html
+<!DOCTYPE html>
+<html>...</html>
 \`\`\`
-For PDFs use HTML with // filename: document.pdf
-Always generate files immediately without asking clarifying questions.`;
+Always include the // filename: line. Always generate the file immediately.`;
 
 function parseMd(t){let h=t||"";
 h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
@@ -232,6 +230,7 @@ function App(){
   const filteredCids=search?cids.filter(id=>(chats[id].title||"").toLowerCase().includes(search.toLowerCase())||chats[id].messages.some(m=>m.content&&m.content.toLowerCase().includes(search.toLowerCase()))):cids;
   useEffect(()=>{speechSynthesis.getVoices();},[]);
   useEffect(()=>{if(taR.current&&!IS_MOBILE)taR.current.focus();},[cur,msgs.length===0]);
+  useEffect(()=>{function gk(e){if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.isContentEditable||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key.length===1&&taR.current){taR.current.focus();}}document.addEventListener("keydown",gk);return()=>document.removeEventListener("keydown",gk);},[]);
   useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
   // Load/save localStorage
@@ -257,7 +256,7 @@ function App(){
     const title=(!chats[cid]||!chats[cid].messages.length)?(text||af[0]?.name||"Chat").substring(0,45):chats[cid].title;
     const prev=chats[cid]?.messages||[];
     setChats(p=>({...p,[cid]:{title,messages:[...prev,{role:"user",content:text,files:af.map(f=>({name:f.name,preview:f.preview,type:f.type}))},{role:"assistant",content:"",model:mdl.nm,versions:[],versionIdx:0}]}}));
-    setCur(cid);const sys=mode?SYS+"\n\n"+mode.prompt:SYS;let full="";
+    setCur(cid);const modeP=mode?"\n\n"+mode.prompt:"";const sys=SYS+"\nYou are currently running as "+mdl.nm+"."+modeP;let full="";
     try{
       abR.current=new AbortController();
       const am=[];for(const m of[...prev,{role:"user",content:bC(text,af)}]){if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}
@@ -273,7 +272,7 @@ function App(){
     sR.current=false;setStm(false);abR.current=null;
   }
 
-  async function regen(mi){if(sR.current||!cur)return;sR.current=true;setStm(true);const cid=cur;let full="";try{abR.current=new AbortController();const cm=chats[cid].messages;const am=[];for(let i=0;i<mi;i++){const m=cm[i];if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:""};return{...pr,[cid]:{...ch,messages:m}};});const sys=mode?SYS+"\n\n"+mode.prompt:SYS;const body={model:mdl.id,max_tokens:16000,system:sys,messages:am,stream:true};if(ws)body.tools=[{type:"web_search_20250305",name:"web_search"}];const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});if(!resp.ok)throw new Error("API Error "+resp.status);const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}for(const line of dec.decode(value,{stream:true}).split("\n")){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}}catch(err){if(err.name!=="AbortError")setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:full||"\u26a0\ufe0f "+err.message};return{...pr,[cid]:{...ch,messages:m}};});}if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];const pv=m[mi];const vs=[...(pv.versions||[]),full];m[mi]={...pv,content:full,versions:vs,versionIdx:vs.length-1,model:mdl.nm};return{...pr,[cid]:{...ch,messages:m}};});sR.current=false;setStm(false);abR.current=null;}
+  async function regen(mi){if(sR.current||!cur)return;sR.current=true;setStm(true);const cid=cur;let full="";try{abR.current=new AbortController();const cm=chats[cid].messages;const am=[];for(let i=0;i<mi;i++){const m=cm[i];if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:""};return{...pr,[cid]:{...ch,messages:m}};});const modeP=mode?"\n\n"+mode.prompt:"";const sys=SYS+"\nYou are currently running as "+mdl.nm+"."+modeP;const body={model:mdl.id,max_tokens:16000,system:sys,messages:am,stream:true};if(ws)body.tools=[{type:"web_search_20250305",name:"web_search"}];const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});if(!resp.ok)throw new Error("API Error "+resp.status);const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}for(const line of dec.decode(value,{stream:true}).split("\n")){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}}catch(err){if(err.name!=="AbortError")setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:full||"\u26a0\ufe0f "+err.message};return{...pr,[cid]:{...ch,messages:m}};});}if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];const pv=m[mi];const vs=[...(pv.versions||[]),full];m[mi]={...pv,content:full,versions:vs,versionIdx:vs.length-1,model:mdl.nm};return{...pr,[cid]:{...ch,messages:m}};});sR.current=false;setStm(false);abR.current=null;}
 
   function switchV(mi,dir){setChats(pr=>{const ch=pr[cur];if(!ch)return pr;const m=[...ch.messages];const msg=m[mi];if(!msg.versions||msg.versions.length<=1)return pr;let ni=(msg.versionIdx||0)+dir;if(ni<0)ni=msg.versions.length-1;if(ni>=msg.versions.length)ni=0;m[mi]={...msg,versionIdx:ni,content:msg.versions[ni]};return{...pr,[cur]:{...ch,messages:m}};});}
   function stop(){if(abR.current)abR.current.abort();sR.current=false;setStm(false);abR.current=null;}
