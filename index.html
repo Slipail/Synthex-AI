@@ -79,7 +79,17 @@ const MODELS=[
 ];
 const MODES=[{icon:"</>",label:"Code",prompt:"Focus on writing clean, efficient code with explanations."},{icon:"✏️",label:"Write",prompt:"Focus on creative and professional writing."},{icon:"📚",label:"Learn",prompt:"Explain concepts clearly with examples."}];
 const SUGS=[{icon:"⚡",text:"Write a Python web scraper",p:"Write a Python script that scrapes a website and exports data to CSV"},{icon:"📘",text:"Explain async/await in JS",p:"Explain how async/await works in JavaScript with examples"},{icon:"🔧",text:"Help me debug my code",p:"Debug this code and explain what's wrong with it"},{icon:"🏗️",text:"Design a REST API",p:"Design a REST API for a task management app with authentication"}];
-const SYS=`You are SynthEx, an advanced AI assistant made by SynthEx Labs. You are NOT Claude and NOT made by Anthropic. Never mention Claude or Anthropic. Be knowledgeable, concise, helpful. Use markdown and code blocks with language tags.\nCRITICAL: When generating ANY file, wrap content in a code block with filename comment on line 1:\n\`\`\`language\n// filename: example.py\n...content...\n\`\`\`\nFor PDFs use HTML with // filename: document.pdf\nALWAYS generate files immediately without asking.`;
+const SYS=`You are SynthEx, an AI assistant. Be knowledgeable, concise, warm, and helpful. Use markdown formatting and code blocks with language tags.
+
+IDENTITY: Your name is SynthEx. If a user asks who made you, say SynthEx Labs. If asked if you are Claude, say no - you are SynthEx. Do NOT volunteer this information unprompted. Do NOT mention Claude, Anthropic, or SynthEx Labs unless directly asked. Just be helpful.
+
+FILE GENERATION: When asked to create any file, immediately output it in a code block with a filename comment:
+\`\`\`language
+// filename: example.py
+...content...
+\`\`\`
+For PDFs use HTML with // filename: document.pdf
+Always generate files immediately without asking clarifying questions.`;
 
 function parseMd(t){let h=t||"";
 h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
@@ -133,6 +143,14 @@ function RenameModal({name,onClose,onSave}){
   </div></div>;
 }
 
+function DeleteModal({name,onClose,onDelete}){
+  return<div className="overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    <h3>Delete Conversation</h3>
+    <p>Are you sure you want to delete <strong style={{color:"#e2e8f0"}}>"{name}"</strong>? This action cannot be undone.</p>
+    <div className="modal-btns"><button className="mbtn mbtn-cancel" onClick={onClose}>Cancel</button><button className="mbtn" style={{background:"#ef4444",color:"#fff"}} onClick={onDelete}>Delete</button></div>
+  </div></div>;
+}
+
 const Ic={
   Copy:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>,
   Spk:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>,
@@ -153,9 +171,34 @@ const Ic={
   Del:()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
 };
 
+function Login({onLogin}){
+  const[email,setEmail]=useState("");const[ld,setLd]=useState(false);
+  function doEmail(){if(!email.trim())return;setLd(true);setTimeout(()=>onLogin({email:email.trim(),name:email.split("@")[0]}),400);}
+  return<div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
+    <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/>
+    <div style={{width:380,maxWidth:"90vw",position:"relative",zIndex:1}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <div style={{width:64,height:64,borderRadius:16,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"inline-flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:22,color:"#0a0e17",boxShadow:"0 0 40px #00f0c030",marginBottom:14}}>SX</div>
+        <h1 style={{fontSize:28,fontWeight:800,background:"linear-gradient(135deg,#00f0c0,#60a5fa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>SynthEx</h1>
+        <p style={{color:"#64748b",fontSize:13,marginTop:6}}>Sign in to save your conversations</p>
+      </div>
+      <div style={{background:"#111827",borderRadius:16,border:"1px solid #1e293b",padding:28,boxShadow:"0 20px 60px rgba(0,0,0,.4)"}}>
+        <button onClick={()=>{setLd(true);setTimeout(()=>onLogin({email:"google-user",name:"User",method:"google"}),500);}} disabled={ld} style={{width:"100%",padding:13,borderRadius:12,border:"1px solid #2d3748",background:"#0d1220",color:"#e2e8f0",fontSize:14,fontWeight:600,fontFamily:"'Outfit',sans-serif",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:".2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(0,240,192,.3)"} onMouseLeave={e=>e.currentTarget.style.borderColor="#2d3748"}>
+          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+          Continue with Google
+        </button>
+        <div style={{display:"flex",alignItems:"center",gap:16,margin:"20px 0"}}><div style={{flex:1,height:1,background:"#1e293b"}}/><span style={{color:"#475569",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>or</span><div style={{flex:1,height:1,background:"#1e293b"}}/></div>
+        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")doEmail();}} placeholder="Enter your email address" style={{width:"100%",padding:"12px 14px",borderRadius:10,border:"1px solid #1e293b",background:"#0a0e17",color:"#e2e8f0",fontSize:14,fontFamily:"'Outfit',sans-serif",outline:"none",marginBottom:10,transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor="rgba(0,240,192,.3)"} onBlur={e=>e.target.style.borderColor="#1e293b"}/>
+        <button onClick={doEmail} disabled={!email.trim()||ld} style={{width:"100%",padding:13,borderRadius:10,border:"none",fontSize:14,fontWeight:700,fontFamily:"'Outfit',sans-serif",cursor:email.trim()?"pointer":"default",background:email.trim()?"linear-gradient(135deg,#00f0c0,#34d399)":"#1e293b",color:email.trim()?"#0a0e17":"#475569",transition:".2s"}}>Continue with email</button>
+        <button onClick={()=>onLogin({email:"guest",name:"Guest"})} style={{width:"100%",marginTop:14,padding:8,background:"none",border:"none",color:"#475569",fontSize:12,cursor:"pointer",fontFamily:"'Outfit'"}} onMouseEnter={e=>e.currentTarget.style.color="#94a3b8"} onMouseLeave={e=>e.currentTarget.style.color="#475569"}>Continue as guest</button>
+      </div>
+    </div>
+  </div>;
+}
+
 function App(){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
-  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");
+  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);
   const endR=useRef(null);const abR=useRef(null);const sR=useRef(false);const fR=useRef(null);const mR=useRef(null);const taR=useRef(null);const svT=useRef(null);
 
   const msgs=cur&&chats[cur]?chats[cur].messages:[];
@@ -164,6 +207,7 @@ function App(){
   const cids=Object.keys(chats).filter(id=>chats[id].messages.length>0).reverse();
   const filteredCids=search?cids.filter(id=>(chats[id].title||"").toLowerCase().includes(search.toLowerCase())||chats[id].messages.some(m=>m.content&&m.content.toLowerCase().includes(search.toLowerCase()))):cids;
   useEffect(()=>{speechSynthesis.getVoices();},[]);
+  useEffect(()=>{if(taR.current&&!IS_MOBILE)taR.current.focus();},[cur,msgs.length===0]);
   useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
   // Load/save localStorage
@@ -178,7 +222,7 @@ function App(){
   function onPaste(e){const items=e.clipboardData?.items;if(!items)return;for(const item of items){if(item.type.startsWith("image/")){e.preventDefault();const f=item.getAsFile();if(!f)return;const r=new FileReader();r.onload=()=>{setFiles(p=>[...p,{name:"pasted-image.png",type:f.type,data:r.result.split(",")[1],preview:r.result}]);};r.readAsDataURL(f);return;}}}
   function hFiles(fl){Array.from(fl).forEach(f=>{if(f.size>20*1024*1024)return;if(!["image/png","image/jpeg","image/gif","image/webp","application/pdf"].includes(f.type)&&!f.type.startsWith("text/"))return;const r=new FileReader();r.onload=()=>{setFiles(p=>[...p,{name:f.name,type:f.type,data:r.result.split(",")[1],preview:f.type.startsWith("image/")?r.result:null}]);};r.readAsDataURL(f);});setPm(false);}
   function bC(text,af){if(!af.length)return text;const parts=[];af.forEach(f=>{if(f.type.startsWith("image/"))parts.push({type:"image",source:{type:"base64",media_type:f.type,data:f.data}});else if(f.type==="application/pdf")parts.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:f.data}});else parts.push({type:"text",text:"[File: "+f.name+"]\n"+atob(f.data)});});if(text)parts.push({type:"text",text});return parts;}
-  function delChat(id){setChats(p=>{const n={...p};delete n[id];return n;});if(cur===id)setCur(null);}
+  function delChat(id){setChats(p=>{const n={...p};delete n[id];return n;});if(cur===id)setCur(null);setDelChatId(null);}
   function renameChat(id,name){setChats(p=>({...p,[id]:{...p[id],title:name}}));setRenChat(null);}
 
   async function doSend(ov){
@@ -219,6 +263,7 @@ function App(){
     <input ref={fR} type="file" multiple accept="image/*,.pdf,.txt,.csv,.json,.js,.py,.html,.css,.md,.ts,.jsx,.tsx,.sql,.java,.cpp,.c,.rb,.go,.rs,.sh,.php,.xml,.yaml,.yml" style={{display:"none"}} onChange={e=>{hFiles(e.target.files);e.target.value="";}}/>
     {linkUrl&&<LinkModal url={linkUrl} onClose={()=>setLinkUrl(null)} onGo={()=>{window.open(linkUrl,"_blank");setLinkUrl(null);}}/>}
     {renChat&&<RenameModal name={chats[renChat]?.title||""} onClose={()=>setRenChat(null)} onSave={n=>renameChat(renChat,n)}/>}
+    {delChatId&&chats[delChatId]&&<DeleteModal name={chats[delChatId].title||"this chat"} onClose={()=>setDelChatId(null)} onDelete={()=>delChat(delChatId)}/>}
 
     {/* Mobile sidebar overlay */}
     {IS_MOBILE&&sb&&<div className="sb-overlay" onClick={()=>setSb(false)}/>}
@@ -229,10 +274,10 @@ function App(){
       <button className="ncb" onClick={fresh} style={{margin:"12px 16px 6px",padding:12,background:"linear-gradient(135deg,rgba(0,240,192,.06),rgba(167,139,250,.04))",border:"1px solid rgba(0,240,192,.15)",borderRadius:10,color:"#00f0c0",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18,lineHeight:1}}>+</span>New Chat</button>
       {/* Search */}
       <div style={{padding:"6px 16px",position:"relative"}}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#475569" strokeWidth="2" style={{position:"absolute",left:28,top:16}}><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input className="search-box" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search conversations..."/></div>
-      <div style={{flex:1,overflowY:"auto",padding:8}}>{filteredCids.map(id=><div key={id} className="ci" onClick={()=>selectChat(id)} style={{padding:"10px 40px 10px 16px",borderRadius:8,cursor:"pointer",marginBottom:2,color:id===cur?"#00f0c0":"#94a3b8",fontSize:13,background:id===cur?"rgba(0,240,192,.04)":"transparent",border:id===cur?"1px solid rgba(0,240,192,.1)":"1px solid transparent",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",position:"relative"}}>{chats[id].title}<div className="ctx-menu"><button className="ctx-btn" onClick={e=>{e.stopPropagation();setRenChat(id);}} title="Rename"><Ic.Edit/></button><button className="ctx-btn" onClick={e=>{e.stopPropagation();delChat(id);}} title="Delete"><Ic.Del/></button></div></div>)}</div>
+      <div style={{flex:1,overflowY:"auto",padding:8}}>{filteredCids.map(id=><div key={id} className="ci" onClick={()=>selectChat(id)} style={{padding:"10px 40px 10px 16px",borderRadius:8,cursor:"pointer",marginBottom:2,color:id===cur?"#00f0c0":"#94a3b8",fontSize:13,background:id===cur?"rgba(0,240,192,.04)":"transparent",border:id===cur?"1px solid rgba(0,240,192,.1)":"1px solid transparent",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",position:"relative"}}>{chats[id].title}<div className="ctx-menu"><button className="ctx-btn" onClick={e=>{e.stopPropagation();setRenChat(id);}} title="Rename"><Ic.Edit/></button><button className="ctx-btn" onClick={e=>{e.stopPropagation();setDelChatId(id);}} title="Delete"><Ic.Del/></button></div></div>)}</div>
       <div style={{padding:16,borderTop:"1px solid #1e293b",flexShrink:0}}>
         <div style={{fontSize:11,fontWeight:600,color:"#475569",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8}}>Model</div>
-        {MODELS.map(m=><div key={m.id} className="mo" onClick={()=>setMdl(m)} style={{padding:"8px 10px",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",gap:8,marginBottom:3,background:mdl.id===m.id?"rgba(0,240,192,.03)":"transparent",border:mdl.id===m.id?"1px solid rgba(0,240,192,.12)":"1px solid transparent"}}><span style={{width:7,height:7,borderRadius:"50%",background:m.c,boxShadow:"0 0 6px "+m.c+"80",flexShrink:0}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:500}}>{m.nm}</div></div><span style={{fontSize:8,fontWeight:700,padding:"2px 5px",borderRadius:4,textTransform:"uppercase",background:m.bg,color:m.c}}>{m.badge}</span></div>)}
+        {MODELS.map(m=><div key={m.id} className="mo" onClick={()=>setMdl(m)} style={{padding:"8px 10px",borderRadius:8,cursor:"pointer",display:"flex",alignItems:"center",gap:8,marginBottom:3,background:mdl.id===m.id?"rgba(0,240,192,.03)":"transparent",border:mdl.id===m.id?"1px solid rgba(0,240,192,.12)":"1px solid transparent"}}><span style={{width:7,height:7,borderRadius:"50%",background:m.c,boxShadow:"0 0 6px "+m.c+"80",flexShrink:0}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:500}}>{m.nm}</div><div style={{fontSize:10,color:"#475569",marginTop:1}}>{m.desc}</div></div><span style={{fontSize:8,fontWeight:700,padding:"2px 5px",borderRadius:4,textTransform:"uppercase",background:m.bg,color:m.c}}>{m.badge}</span></div>)}
       </div>
     </aside>
 
@@ -242,7 +287,7 @@ function App(){
         <button onClick={()=>setSb(!sb)} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>☰</button>
         <span style={{fontFamily:"'JetBrains Mono'",fontSize:11,color:mdl.c,background:mdl.c+"10",padding:"3px 8px",borderRadius:6,border:"1px solid "+mdl.c+"20",display:"flex",alignItems:"center",gap:5}}><span style={{width:5,height:5,borderRadius:"50%",background:mdl.c}}/>{mdl.nm}</span>
         {mode&&<span style={{fontSize:10,color:"#475569",background:"#111827",padding:"2px 8px",borderRadius:6,border:"1px solid #1e293b"}}>{mode.icon} {mode.label}</span>}
-        {et&&<span style={{fontSize:10,color:"#a78bfa",background:"#a78bfa10",padding:"2px 8px",borderRadius:6,border:"1px solid #a78bfa20"}}>🧠</span>}
+        {et&&<span style={{fontSize:10,color:"#a78bfa",background:"#a78bfa10",padding:"2px 8px",borderRadius:6,border:"1px solid #a78bfa20"}}>🧠 Think</span>}
         <div style={{marginLeft:"auto",fontSize:11,color:"#475569",display:"flex",alignItems:"center",gap:5}}><span style={{width:5,height:5,borderRadius:"50%",background:"#34d399",animation:"pu 2s ease-in-out infinite"}}/>Online</div>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:IS_MOBILE?16:24,display:"flex",flexDirection:"column",gap:16}}>
@@ -300,7 +345,16 @@ function App(){
   </div>;
 }
 
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+ReactDOM.createRoot(document.getElementById("root")).render(<AuthWrapper/>);
+
+function AuthWrapper(){
+  const[user,setUser]=useState(null);const[ck,setCk]=useState(true);
+  useEffect(()=>{try{const d=localStorage.getItem("sx-user");if(d)setUser(JSON.parse(d));}catch{}setCk(false);},[]);
+  function login(u){setUser(u);try{localStorage.setItem("sx-user",JSON.stringify(u));}catch{}}
+  function logout(){setUser(null);try{localStorage.removeItem("sx-user");}catch{}}
+  if(ck)return<div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
+  return user?<App/>:<Login onLogin={login}/>;
+}
 </script>
 </body>
 </html>
