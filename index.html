@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2300f0c0'/><stop offset='1' stop-color='%23a78bfa'/></linearGradient></defs><text x='50' y='68' text-anchor='middle' font-family='monospace' font-weight='bold' font-size='40' fill='%230a0e17'>SX</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100%;overflow:hidden}
+*{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100dvh;height:100vh;overflow:hidden}
 body{background:#0a0e17;color:#e2e8f0;font-family:'Outfit','Segoe UI',sans-serif;-webkit-text-size-adjust:100%}
 input,textarea,button{font-size:16px}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(100,116,139,.2);border-radius:10px}
@@ -58,7 +58,7 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 .ctx-menu{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none;gap:2px}
 .ci:hover .ctx-menu{display:flex}
 .ctx-btn{background:none;border:none;color:#475569;cursor:pointer;padding:2px;border-radius:3px;display:flex;align-items:center;transition:.1s}.ctx-btn:hover{color:#00f0c0}
-.fpanel{position:fixed;top:0;right:0;width:50%;max-width:700px;height:100%;background:#111827;border-left:1px solid #1e293b;z-index:30;display:flex;flex-direction:column;animation:fpSlide .2s ease;box-shadow:-8px 0 30px rgba(0,0,0,.4)}
+.fpanel{position:fixed;top:0;right:0;width:50%;height:100dvh;height:100%;background:#111827;border-left:1px solid #1e293b;z-index:30;display:flex;flex-direction:column;animation:fpSlide .2s ease;box-shadow:-8px 0 30px rgba(0,0,0,.4)}
 @keyframes fpSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}
 .fpanel-bar{padding:10px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;gap:10px;flex-shrink:0}
 .fpanel iframe,.fpanel pre{flex:1;border:none;width:100%;background:#0a0e17}
@@ -107,23 +107,32 @@ h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/
 function dlFile(n,c){if(n.endsWith(".pdf")){const w=window.open("","_blank");if(w){w.document.write(c);w.document.close();setTimeout(()=>w.print(),500);}return;}const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
 function FilePanel({file,onClose}){
-  const iframeRef=useRef(null);
+  const iframeRef=useRef(null);const[w,setW]=useState(50);const[dragging,setDragging]=useState(false);const[viewMode,setViewMode]=useState("preview");
   const isHtml=file.name.endsWith(".html")||file.name.endsWith(".htm");
+  const isSvg=file.name.endsWith(".svg");
+  const canPreview=isHtml||isSvg;
   useEffect(()=>{
-    if(isHtml&&iframeRef.current){const doc=iframeRef.current.contentDocument;doc.open();doc.write(file.code);doc.close();}
-  },[file,isHtml]);
-  return<div className="fpanel">
+    if((isHtml||isSvg)&&viewMode==="preview"&&iframeRef.current){const doc=iframeRef.current.contentDocument;doc.open();doc.write(file.code);doc.close();}
+  },[file,viewMode,isHtml,isSvg]);
+  useEffect(()=>{if(!dragging)return;const mm=e=>{const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;setW(Math.max(25,Math.min(80,100-pct)));};const mu=()=>setDragging(false);document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);document.addEventListener("touchmove",mm);document.addEventListener("touchend",mu);return()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);document.removeEventListener("touchmove",mm);document.removeEventListener("touchend",mu);};},[dragging]);
+  function copyCode(){navigator.clipboard.writeText(file.code).then(()=>{});}
+  const showPreview=canPreview&&viewMode==="preview";
+  return<><div style={{position:"fixed",left:0,top:0,width:(100-w)+"%",height:"100%",zIndex:29,background:"transparent",pointerEvents:dragging?"auto":"none"}}/>
+  <div className="fpanel" style={{width:w+"%",maxWidth:"none"}}>
+    <div onMouseDown={()=>setDragging(true)} onTouchStart={()=>setDragging(true)} style={{position:"absolute",left:-4,top:0,width:8,height:"100%",cursor:"col-resize",zIndex:2}}><div style={{width:2,height:"100%",margin:"0 auto",background:dragging?"#00f0c0":"transparent",transition:"background .15s"}}/></div>
     <div className="fpanel-bar">
       <div style={{flex:1,display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-        <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️"})[file.name.split(".").pop()]||"📄"}</span>
+        <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",svg:"🎨",xml:"📰",yaml:"📄",sh:"🖥️",sql:"🗄️"})[file.name.split(".").pop()]||"📄"}</span>
         <span style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{file.name}</span>
         <span style={{fontSize:10,color:"#475569"}}>{file.code.length} chars</span>
       </div>
+      {canPreview&&<div style={{display:"flex",border:"1px solid #1e293b",borderRadius:6,overflow:"hidden"}}><button onClick={()=>setViewMode("preview")} style={{padding:"3px 8px",fontSize:10,fontWeight:600,background:viewMode==="preview"?"rgba(0,240,192,.1)":"transparent",color:viewMode==="preview"?"#00f0c0":"#64748b",border:"none",cursor:"pointer",fontFamily:"'Outfit'"}}>Preview</button><button onClick={()=>setViewMode("source")} style={{padding:"3px 8px",fontSize:10,fontWeight:600,background:viewMode==="source"?"rgba(0,240,192,.1)":"transparent",color:viewMode==="source"?"#00f0c0":"#64748b",border:"none",cursor:"pointer",fontFamily:"'Outfit'"}}>Source</button></div>}
+      <button className="dlb" onClick={copyCode} style={{fontSize:11,padding:"4px 10px"}}>Copy</button>
       <button className="dlb" onClick={()=>dlFile(file.name,file.code)} style={{fontSize:11,padding:"4px 10px"}}>{file.name.endsWith(".pdf")?"Save PDF":"Download"}</button>
       <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>✕</button>
     </div>
-    {isHtml?<iframe ref={iframeRef} style={{flex:1,background:"#fff"}} sandbox="allow-scripts"/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap"}}>{file.code}</pre>}
-  </div>;
+    {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}} sandbox="allow-scripts"/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
+  </div></>;
 }
 
 function MsgHtml({content,onLink,onView}){
@@ -196,7 +205,7 @@ const Ic={
 function Login({onLogin}){
   const[email,setEmail]=useState("");const[ld,setLd]=useState(false);
   function doEmail(){if(!email.trim())return;setLd(true);setTimeout(()=>onLogin({email:email.trim(),name:email.split("@")[0]}),400);}
-  return<div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
+  return<div style={{height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
     <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/>
     <div style={{width:380,maxWidth:"90vw",position:"relative",zIndex:1}}>
       <div style={{textAlign:"center",marginBottom:32}}>
@@ -224,8 +233,12 @@ function App(){
   const endR=useRef(null);const abR=useRef(null);const sR=useRef(false);const fR=useRef(null);const mR=useRef(null);const taR=useRef(null);const svT=useRef(null);
 
   const msgs=cur&&chats[cur]?chats[cur].messages:[];
-  const scr=useCallback(()=>{setTimeout(()=>endR.current?.scrollIntoView({behavior:"smooth"}),50);},[]);
+  const chatRef=useRef(null);const userScrolled=useRef(false);
+  const scr=useCallback(()=>{if(!userScrolled.current)setTimeout(()=>endR.current?.scrollIntoView({behavior:"smooth"}),50);},[]);
   useEffect(scr,[msgs.length,msgs[msgs.length-1]?.content,scr]);
+  useEffect(()=>{const el=chatRef.current;if(!el)return;const h=()=>{const atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<150;userScrolled.current=!atBottom;};el.addEventListener("scroll",h);return()=>el.removeEventListener("scroll",h);},[]);
+  // Reset scroll lock when new message sent
+  useEffect(()=>{userScrolled.current=false;},[msgs.length]);
   const cids=Object.keys(chats).filter(id=>chats[id].messages.length>0).reverse();
   const filteredCids=search?cids.filter(id=>(chats[id].title||"").toLowerCase().includes(search.toLowerCase())||chats[id].messages.some(m=>m.content&&m.content.toLowerCase().includes(search.toLowerCase()))):cids;
   useEffect(()=>{speechSynthesis.getVoices();},[]);
@@ -280,7 +293,7 @@ function App(){
   function togSpk(i,t){if(spk===i){speechSynthesis.cancel();setSpk(null);}else{speakT(t,()=>setSpk(null));setSpk(i);}}
   const wel=msgs.length===0;
 
-  return<div style={{display:"flex",height:"100vh",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Outfit','Segoe UI',sans-serif",position:"relative",overflow:"hidden"}} onDrop={e=>{e.preventDefault();setDg(false);hFiles(e.dataTransfer.files);}} onDragOver={e=>{e.preventDefault();setDg(true);}} onDragLeave={()=>setDg(false)}>
+  return<div style={{display:"flex",height:"100dvh",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Outfit','Segoe UI',sans-serif",position:"relative",overflow:"hidden"}} onDrop={e=>{e.preventDefault();setDg(false);hFiles(e.dataTransfer.files);}} onDragOver={e=>{e.preventDefault();setDg(true);}} onDragLeave={()=>setDg(false)}>
     <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/><div className="gorb" style={{width:300,height:300,background:"#60a5fa",top:"40%",left:"50%",animation:"of 12s ease-in-out infinite 3s"}}/>
     {dg&&<div className="dov"><span style={{color:"#00f0c0",fontSize:20,fontWeight:600}}>Drop files here</span></div>}
     <input ref={fR} type="file" multiple accept="image/*,.pdf,.txt,.csv,.json,.js,.py,.html,.css,.md,.ts,.jsx,.tsx,.sql,.java,.cpp,.c,.rb,.go,.rs,.sh,.php,.xml,.yaml,.yml" style={{display:"none"}} onChange={e=>{hFiles(e.target.files);e.target.value="";}}/>
@@ -314,7 +327,7 @@ function App(){
         {et&&<span style={{fontSize:10,color:"#a78bfa",background:"#a78bfa10",padding:"2px 8px",borderRadius:6,border:"1px solid #a78bfa20"}}>🧠 Think</span>}
         <div style={{marginLeft:"auto",fontSize:11,color:"#475569",display:"flex",alignItems:"center",gap:5}}><span style={{width:5,height:5,borderRadius:"50%",background:"#34d399",animation:"pu 2s ease-in-out infinite"}}/>Online</div>
       </div>
-      <div style={{flex:1,overflowY:"auto",padding:IS_MOBILE?16:24,display:"flex",flexDirection:"column",gap:16}}>
+      <div ref={chatRef} style={{flex:1,overflowY:"auto",padding:IS_MOBILE?16:24,display:"flex",flexDirection:"column",gap:16}}>
         {wel?<div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",textAlign:"center",padding:IS_MOBILE?20:40,gap:16}}>
           <div style={{width:70,height:70,borderRadius:18,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:24,color:"#0a0e17",animation:"wp 3s ease-in-out infinite"}}>SX</div>
           <h1 style={{fontSize:IS_MOBILE?24:32,fontWeight:800,background:"linear-gradient(135deg,#e2e8f0,#94a3b8)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>What can I help you with?</h1>
@@ -376,7 +389,7 @@ function AuthWrapper(){
   useEffect(()=>{try{const d=localStorage.getItem("sx-user");if(d)setUser(JSON.parse(d));}catch{}setCk(false);},[]);
   function login(u){setUser(u);try{localStorage.setItem("sx-user",JSON.stringify(u));}catch{}}
   function logout(){setUser(null);try{localStorage.removeItem("sx-user");}catch{}}
-  if(ck)return<div style={{height:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
+  if(ck)return<div style={{height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
   return user?<App/>:<Login onLogin={login}/>;
 }
 </script>
