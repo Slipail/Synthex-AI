@@ -135,7 +135,7 @@ Supported file types: .py, .js, .ts, .java, .cpp, .c, .go, .rs, .html, .css, .js
 
 For spreadsheets (.xlsx): Generate HTML with <table> elements using // filename: data.xlsx — the system converts HTML tables to real Excel files automatically.
 
-For PDFs (.pdf): Generate styled HTML with // filename: document.pdf — the system converts it to a real PDF file automatically.
+For PDFs (.pdf): Generate styled HTML with // filename: document.pdf — the system converts it to a real PDF file automatically. IMPORTANT: Always use a white/light background for PDFs with dark text — never use dark themes as they don't convert well to PDF.
 
 Always use the correct file extension for the language requested. Never default to HTML when another format is asked for. Keep files complete.`;
 
@@ -158,9 +158,16 @@ h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/
 function dlFile(n,c){
   const ext=n.split(".").pop().toLowerCase();
   if(ext==="pdf"){
-    // Real PDF download via html2pdf.js
-    const container=document.createElement("div");container.innerHTML=c;container.style.cssText="position:fixed;left:-9999px;width:800px;";document.body.appendChild(container);
-    html2pdf().set({margin:10,filename:n,image:{type:"jpeg",quality:.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}}).from(container).save().then(()=>document.body.removeChild(container)).catch(()=>document.body.removeChild(container));
+    // Render HTML in a visible iframe, then use html2pdf on it
+    const iframe=document.createElement("iframe");
+    iframe.style.cssText="position:fixed;top:0;left:0;width:800px;height:1200px;opacity:0;pointer-events:none;z-index:-1;";
+    document.body.appendChild(iframe);
+    const idoc=iframe.contentDocument;idoc.open();idoc.write(c);idoc.close();
+    iframe.onload=()=>{
+      setTimeout(()=>{
+        html2pdf().set({margin:[10,10,10,10],filename:n,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,logging:false,width:780,windowWidth:780},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}}).from(idoc.body).save().then(()=>{document.body.removeChild(iframe);}).catch(e=>{console.error("PDF error:",e);document.body.removeChild(iframe);});
+      },500); // Wait for styles/fonts to load
+    };
     return;
   }
   if(ext==="xlsx"||ext==="xls"){
