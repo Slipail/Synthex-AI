@@ -90,10 +90,15 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 .lightbox img{max-width:90vw;max-height:90vh;object-fit:contain;border-radius:8px;cursor:zoom-in;transition:transform .2s}
 .lightbox .lb-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
 .lightbox .lb-close:hover{background:rgba(255,255,255,.2)}
+.msg-collapse{max-height:250px;overflow:hidden;position:relative}
+.msg-collapse::after{content:"";position:absolute;bottom:0;left:0;right:0;height:60px;background:linear-gradient(transparent,#111827);pointer-events:none;border-radius:0 0 12px 12px}
+.show-more-btn{background:none;border:none;color:#00f0c0;font-size:12px;font-weight:600;cursor:pointer;padding:4px 0;font-family:'Outfit',sans-serif;opacity:.8;transition:.15s}
+.show-more-btn:hover{opacity:1}
 </style>
 </head>
 <body>
 <div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -118,7 +123,8 @@ When generating files, use this exact format:
 \`\`\`language
 // filename: name.ext
 content here
-\`\`\``;
+\`\`\`
+For PDF files, generate the content as HTML with // filename: document.pdf — the system will convert it to a real PDF automatically. Always generate files immediately.`;
 
 function parseMd(t){let h=t||"";
 h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
@@ -134,7 +140,10 @@ h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" data-ext="1">$1</a>');
 h=h.replace(/(?<!["=])(https?:\/\/[^\s<)]+)/g,'<a href="$1" data-ext="1">$1</a>');
 h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/gm,"<p>$1</p>");return h;}
 
-function dlFile(n,c){if(n.endsWith(".pdf")){const w=window.open("","_blank");if(w){w.document.write(c);w.document.close();setTimeout(()=>w.print(),500);}return;}const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+function dlFile(n,c){if(n.endsWith(".pdf")){
+  // Generate real PDF from HTML content
+  try{const{jsPDF}=window.jspdf;const doc=new jsPDF();const tmp=document.createElement("div");tmp.innerHTML=c;const text=tmp.textContent||tmp.innerText||c;const lines=doc.splitTextToSize(text,180);doc.setFontSize(11);let y=15;for(const line of lines){if(y>280){doc.addPage();y=15;}doc.text(line,15,y);y+=6;}doc.save(n);}catch{const w=window.open("","_blank");if(w){w.document.write(c);w.document.close();setTimeout(()=>w.print(),500);}}return;}
+  const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
 function FilePanel({file,onClose}){
   const iframeRef=useRef(null);const[w,setW]=useState(50);const[dragging,setDragging]=useState(false);const[viewMode,setViewMode]=useState("preview");
@@ -296,6 +305,13 @@ function Login({onLogin}){
   </div>;
 }
 
+function Cm({children,ai}){
+  const ref=useRef(null);const[tall,setTall]=useState(false);const[exp,setExp]=useState(false);
+  useEffect(()=>{if(ref.current)setTall(ref.current.scrollHeight>250);});
+  const cls=tall&&!exp?"msg-collapse":"";
+  return<><div ref={ref} className={cls} style={{padding:"12px 16px",borderRadius:12,lineHeight:1.7,fontSize:14,background:ai?"#111827":"linear-gradient(135deg,rgba(0,240,192,.06),rgba(0,240,192,.03))",border:ai?"1px solid #1e293b":"1px solid rgba(0,240,192,.15)",userSelect:"text",wordBreak:"break-word"}}>{children}</div>{tall&&<button className="show-more-btn" onClick={()=>setExp(!exp)}>{exp?"Show less":"Show more"}</button>}</>;
+}
+
 function App({user,onLogout}){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
   const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);
@@ -331,11 +347,12 @@ function App({user,onLogout}){
   useEffect(()=>{function gk(e){if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.isContentEditable||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key.length===1&&taR.current){taR.current.focus();}}document.addEventListener("keydown",gk);return()=>document.removeEventListener("keydown",gk);},[]);
   useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
-  // URL routing
-  useEffect(()=>{const path=window.location.pathname;const m=path.match(/^\/chat\/(.+)/);if(m&&m[1]){const id=m[1];if(chats[id])setCur(id);}},[ ]);
-  useEffect(()=>{if(cur){window.history.replaceState(null,"","/chat/"+cur);}else{window.history.replaceState(null,"","/");}},[ cur]);
-  // Load/save localStorage + cloud sync
-  useEffect(()=>{try{const d=localStorage.getItem("sx-chats");if(d)setChats(JSON.parse(d));}catch{}},[]);
+  // URL routing — restore chat from URL after chats load
+  const chatsLoaded=useRef(false);
+  useEffect(()=>{try{const d=localStorage.getItem("sx-chats");if(d){const parsed=JSON.parse(d);setChats(parsed);
+    const path=window.location.pathname;const m=path.match(/^\/chat\/(.+)/);if(m&&m[1]&&parsed[m[1]])setCur(m[1]);
+  }}catch{}chatsLoaded.current=true;},[]);
+  useEffect(()=>{if(!chatsLoaded.current)return;if(cur){window.history.replaceState(null,"","/chat/"+cur);}else{window.history.replaceState(null,"","/");}},[cur]);
   useEffect(()=>{
     if(!db||!user?.email||user.email==="guest")return;
     // Load from cloud on login
@@ -378,7 +395,7 @@ function App({user,onLogout}){
     let cid=cur;if(!cid||!chats[cid])cid="c_"+Date.now();
     const title=(!chats[cid]||!chats[cid].messages.length)?(text||af[0]?.name||"Chat").substring(0,45):chats[cid].title;
     const prev=chats[cid]?.messages||[];
-    setChats(p=>({...p,[cid]:{title,messages:[...prev,{role:"user",content:text,files:af.map(f=>({name:f.name,preview:f.preview,type:f.type}))},{role:"assistant",content:"",model:mdl.nm,versions:[],versionIdx:0}]}}));
+    setChats(p=>({...p,[cid]:{title,messages:[...prev,{role:"user",content:text,files:af.map(f=>({name:f.name,preview:f.preview,type:f.type})),ts:Date.now()},{role:"assistant",content:"",model:mdl.nm,versions:[],versionIdx:0,ts:Date.now()}]}}));
     setCur(cid);const modeP=mode?"\n\n"+mode.prompt:"";const sys=SYS+"\nYou are currently running as "+mdl.nm+"."+modeP;let full="";
     try{
       abR.current=new AbortController();
@@ -456,12 +473,13 @@ function App({user,onLogout}){
             {ai?<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0a0e17",alignSelf:"flex-start"}}>SX</div>:<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"#111827",border:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,color:"#94a3b8",alignSelf:"flex-start"}}>You</div>}
             <div style={{maxWidth:"calc(100% - 44px)",minWidth:0}}>
               {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",cursor:"pointer"}} onClick={()=>{if(f.preview)setLbSrc(f.preview);}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:180,maxHeight:130,display:"block"}}/>:<div style={{padding:"6px 10px",background:"#111827",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
-              <div className={ai?"mc":""} style={{padding:"12px 16px",borderRadius:12,lineHeight:1.7,fontSize:14,background:ai?"#111827":"linear-gradient(135deg,rgba(0,240,192,.06),rgba(0,240,192,.03))",border:ai?"1px solid #1e293b":"1px solid rgba(0,240,192,.15)",userSelect:"text",wordBreak:"break-word"}}>
+              <Cm ai={ai}>
                 {typ?<div style={{display:"flex",alignItems:"center",gap:5,height:24}}>{[0,1,2].map(j=><span key={j} style={{width:6,height:6,borderRadius:"50%",background:"#00f0c0",display:"block",animation:"dotB 1.4s ease-in-out infinite "+j*.16+"s"}}/>)}</div>:ai?<MsgHtml content={msg.content} onLink={openLink} onView={f=>setViewF(f)}/>:<span style={{whiteSpace:"pre-wrap"}}>{msg.content}</span>}
-              </div>
-              {!ai&&msg.content&&<div style={{display:"flex",justifyContent:"flex-end",marginTop:3}}><button className="ab" onClick={()=>navigator.clipboard.writeText(msg.content)} title="Copy"><Ic.Copy/></button></div>}
+              </Cm>
+              {!ai&&msg.content&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",marginTop:3,gap:4}}>{msg.ts&&<span style={{fontSize:9,color:"#334155",fontFamily:"'JetBrains Mono'"}}>{new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}<button className="ab" onClick={()=>navigator.clipboard.writeText(msg.content)} title="Copy"><Ic.Copy/></button></div>}
               {ai&&msg.content!==""&&!typ&&<div style={{display:"flex",alignItems:"center",gap:2,marginTop:5,flexWrap:"wrap"}}>
                 {mi2&&<span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono'",marginRight:6}}><span style={{width:4,height:4,borderRadius:"50%",background:mi2.c}}/>{mi2.nm}</span>}
+                {msg.ts&&<span style={{fontSize:9,color:"#334155",fontFamily:"'JetBrains Mono'",marginRight:4}}>{new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}
                 <button className="ab" onClick={()=>copyM(msg.content)} title="Copy"><Ic.Copy/></button>
                 <button className="ab" onClick={()=>togSpk(i,msg.content)} title={spk===i?"Stop":"Read"}>{spk===i?<Ic.Mut/>:<Ic.Spk/>}</button>
                 {!stm&&<button className="ab" onClick={()=>regen(i)} title="Regenerate"><Ic.Reg/></button>}
@@ -493,7 +511,7 @@ function App({user,onLogout}){
               </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#334155"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}{!ws&&!et?(() =>{const l=checkLimit();return l.ok?l.left+"/25 messages left":"Limit reached";})():""}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{fontFamily:"'JetBrains Mono'",color:mdl.c}}>{mdl.nm}</span></span></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#334155"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}{(()=>{const l=checkLimit();if(!l.ok){const mins=Math.ceil((l.reset-Date.now())/60000);return"⏳ Resets in "+mins+"min";}return l.left+"/25";})()}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{fontFamily:"'JetBrains Mono'",color:mdl.c}}>{mdl.nm}</span></span></div>
         </div>
       </div>
     </main>
