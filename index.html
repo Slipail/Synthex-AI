@@ -110,14 +110,15 @@ const MODELS=[
 ];
 const MODES=[{icon:"</>",label:"Code",prompt:"Focus on writing clean, efficient code with explanations."},{icon:"✏️",label:"Write",prompt:"Focus on creative and professional writing."},{icon:"📚",label:"Learn",prompt:"Explain concepts clearly with examples."}];
 const SUGS=[{icon:"⚡",text:"Write a Python web scraper",p:"Write a Python script that scrapes a website and exports data to CSV"},{icon:"📘",text:"Explain async/await in JS",p:"Explain how async/await works in JavaScript with examples"},{icon:"🔧",text:"Help me debug my code",p:"Debug this code and explain what's wrong with it"},{icon:"🏗️",text:"Design a REST API",p:"Design a REST API for a task management app with authentication"}];
-const SYS=`You are an AI assistant called SynthEx, made by Slipail. The models you run on are called Core 4.6, Pulse 4.6, Pulse 4.5, and Spark 4.5 instead of their original names. If asked about your creator or model name, use the SynthEx names. Otherwise just respond naturally and helpfully exactly as you normally would. Never mention Claude or Anthropic by name.
+const SYS=`You are an AI assistant called SynthEx, made by Slipail. Your models are Core 4.6, Pulse 4.6, Pulse 4.5, and Spark 4.5. Use SynthEx names instead of original names. Never mention Claude or Anthropic.
 
-When generating files, always use this exact format so the UI renders a download button:
+Be concise. Give short, direct answers. Don't over-explain or add unnecessary context. Match the length and effort to the question — simple questions get short answers.
+
+When generating files, use this exact format:
 \`\`\`language
 // filename: name.ext
 content here
-\`\`\`
-Always generate files immediately without asking clarifying questions first.`;
+\`\`\``;
 
 function parseMd(t){let h=t||"";
 h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
@@ -197,13 +198,13 @@ function LinkModal({url,onClose,onGo}){
   const[skip,setSkip]=useState(false);
   return<div className="overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
     <h3>Leaving SynthEx</h3>
-    <p>You're about to visit an external website. SynthEx is not responsible for the content on third-party sites.</p>
+    <p>You're about to visit an external website.</p>
     <div className="modal-url">{url}</div>
-    <div className="modal-btns">
+    <div className="modal-btns" style={{justifyContent:"center"}}>
       <button className="mbtn mbtn-cancel" onClick={onClose}>Stay Here</button>
-      <button className="mbtn mbtn-go" onClick={()=>{if(skip)localStorage.setItem("sx-skip-link","1");onGo();}}>Visit Website</button>
+      <button className="mbtn mbtn-go" style={{padding:"10px 28px"}} onClick={()=>{if(skip)localStorage.setItem("sx-skip-link","1");onGo();}}>Visit Website</button>
     </div>
-    <label style={{display:"flex",alignItems:"center",gap:8,marginTop:14,cursor:"pointer",fontSize:12,color:"#64748b"}}><input type="checkbox" checked={skip} onChange={e=>setSkip(e.target.checked)} style={{accentColor:"#00f0c0"}}/>Don't show this warning again</label>
+    <label style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,marginTop:14,cursor:"pointer",fontSize:12,color:"#64748b"}}><input type="checkbox" checked={skip} onChange={e=>setSkip(e.target.checked)} style={{accentColor:"#00f0c0"}}/>Don't show this again</label>
   </div></div>;
 }
 
@@ -320,10 +321,19 @@ function App({user,onLogout}){
   useEffect(()=>{speechSynthesis.getVoices();},[]);
   useEffect(()=>{if(taR.current&&!IS_MOBILE)taR.current.focus();},[cur,msgs.length===0]);
   // Fix mobile keyboard viewport
-  useEffect(()=>{if(!IS_MOBILE||!window.visualViewport)return;const vv=window.visualViewport;const h=()=>{document.documentElement.style.height=vv.height+"px";};vv.addEventListener("resize",h);vv.addEventListener("scroll",h);return()=>{vv.removeEventListener("resize",h);vv.removeEventListener("scroll",h);};},[]);
+  useEffect(()=>{if(!IS_MOBILE)return;
+    const setH=()=>{document.documentElement.style.height=(window.visualViewport?.height||window.innerHeight)+"px";document.body.style.height=(window.visualViewport?.height||window.innerHeight)+"px";};
+    setH();
+    if(window.visualViewport){window.visualViewport.addEventListener("resize",setH);window.visualViewport.addEventListener("scroll",setH);}
+    window.addEventListener("resize",setH);
+    return()=>{if(window.visualViewport){window.visualViewport.removeEventListener("resize",setH);window.visualViewport.removeEventListener("scroll",setH);}window.removeEventListener("resize",setH);};
+  },[]);
   useEffect(()=>{function gk(e){if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.isContentEditable||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key.length===1&&taR.current){taR.current.focus();}}document.addEventListener("keydown",gk);return()=>document.removeEventListener("keydown",gk);},[]);
   useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
+  // URL routing
+  useEffect(()=>{const path=window.location.pathname;const m=path.match(/^\/chat\/(.+)/);if(m&&m[1]){const id=m[1];if(chats[id])setCur(id);}},[ ]);
+  useEffect(()=>{if(cur){window.history.replaceState(null,"","/chat/"+cur);}else{window.history.replaceState(null,"","/");}},[ cur]);
   // Load/save localStorage + cloud sync
   useEffect(()=>{try{const d=localStorage.getItem("sx-chats");if(d)setChats(JSON.parse(d));}catch{}},[]);
   useEffect(()=>{
@@ -378,14 +388,14 @@ function App({user,onLogout}){
       if(et)body.thinking={type:"enabled",budget_tokens:10000};
       const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});
       if(!resp.ok){const e=await resp.json().catch(()=>({}));throw new Error(e.error?.message||"API Error "+resp.status);}
-      const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;
-      while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}for(const line of dec.decode(value,{stream:true}).split("\n")){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}
+      const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;let buf="";
+      while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}buf+=dec.decode(value,{stream:true});const lines=buf.split("\n");buf=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}
     }catch(err){if(err.name!=="AbortError"){full=full||"\u26a0\ufe0f **Error:** "+err.message;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:full};return{...pr,[cid]:{...ch,messages:m}};});}}
     if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[m.length-1]={...m[m.length-1],content:full,versions:[full],versionIdx:0};return{...pr,[cid]:{...ch,messages:m}};});
     sR.current=false;setStm(false);abR.current=null;
   }
 
-  async function regen(mi){if(sR.current||!cur)return;sR.current=true;setStm(true);const cid=cur;let full="";try{abR.current=new AbortController();const cm=chats[cid].messages;const am=[];for(let i=0;i<mi;i++){const m=cm[i];if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:""};return{...pr,[cid]:{...ch,messages:m}};});const modeP=mode?"\n\n"+mode.prompt:"";const sys=SYS+"\nYou are currently running as "+mdl.nm+"."+modeP;const body={model:mdl.id,max_tokens:16000,system:sys,messages:am,stream:true};if(ws)body.tools=[{type:"web_search_20250305",name:"web_search"}];const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});if(!resp.ok)throw new Error("API Error "+resp.status);const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}for(const line of dec.decode(value,{stream:true}).split("\n")){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}}catch(err){if(err.name!=="AbortError")setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:full||"\u26a0\ufe0f "+err.message};return{...pr,[cid]:{...ch,messages:m}};});}if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];const pv=m[mi];const vs=[...(pv.versions||[]),full];m[mi]={...pv,content:full,versions:vs,versionIdx:vs.length-1,model:mdl.nm};return{...pr,[cid]:{...ch,messages:m}};});sR.current=false;setStm(false);abR.current=null;}
+  async function regen(mi){if(sR.current||!cur)return;sR.current=true;setStm(true);const cid=cur;let full="";try{abR.current=new AbortController();const cm=chats[cid].messages;const am=[];for(let i=0;i<mi;i++){const m=cm[i];if(m.role==="user")am.push({role:"user",content:m.content||""});else{const c=m.versions?.length>0?m.versions[m.versionIdx||0]:m.content;if(c)am.push({role:"assistant",content:c});}}setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:""};return{...pr,[cid]:{...ch,messages:m}};});const modeP=mode?"\n\n"+mode.prompt:"";const sys=SYS+"\nYou are currently running as "+mdl.nm+"."+modeP;const body={model:mdl.id,max_tokens:16000,system:sys,messages:am,stream:true};if(ws)body.tools=[{type:"web_search_20250305",name:"web_search"}];const resp=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body),signal:abR.current.signal});if(!resp.ok)throw new Error("API Error "+resp.status);const reader=resp.body.getReader();const dec=new TextDecoder();let done2=false;let buf="";while(!done2){const{done,value}=await reader.read();if(done){done2=true;break;}buf+=dec.decode(value,{stream:true});const lines=buf.split("\n");buf=lines.pop()||"";for(const line of lines){if(!line.startsWith("data: "))continue;const d=line.slice(6);if(d==="[DONE]")continue;try{const p=JSON.parse(d);if(p.type==="content_block_delta"&&p.delta?.text){full+=p.delta.text;const cap=full;setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:cap};return{...pr,[cid]:{...ch,messages:m}};});}if(p.type==="message_stop")done2=true;}catch{}}}}catch(err){if(err.name!=="AbortError")setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];m[mi]={...m[mi],content:full||"\u26a0\ufe0f "+err.message};return{...pr,[cid]:{...ch,messages:m}};});}if(full)setChats(pr=>{const ch=pr[cid];if(!ch)return pr;const m=[...ch.messages];const pv=m[mi];const vs=[...(pv.versions||[]),full];m[mi]={...pv,content:full,versions:vs,versionIdx:vs.length-1,model:mdl.nm};return{...pr,[cid]:{...ch,messages:m}};});sR.current=false;setStm(false);abR.current=null;}
 
   function switchV(mi,dir){setChats(pr=>{const ch=pr[cur];if(!ch)return pr;const m=[...ch.messages];const msg=m[mi];if(!msg.versions||msg.versions.length<=1)return pr;let ni=(msg.versionIdx||0)+dir;if(ni<0)ni=msg.versions.length-1;if(ni>=msg.versions.length)ni=0;m[mi]={...msg,versionIdx:ni,content:msg.versions[ni]};return{...pr,[cur]:{...ch,messages:m}};});}
   function stop(){if(abR.current)abR.current.abort();sR.current=false;setStm(false);abR.current=null;}
