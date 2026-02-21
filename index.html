@@ -6,6 +6,7 @@
 <title>SynthEx AI</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2300f0c0'/><stop offset='1' stop-color='%23a78bfa'/></linearGradient></defs><text x='50' y='68' text-anchor='middle' font-family='monospace' font-weight='bold' font-size='40' fill='%230a0e17'>SX</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100dvh;height:100vh;overflow:hidden}
 body{background:#0a0e17;color:#e2e8f0;font-family:'Outfit','Segoe UI',sans-serif;-webkit-text-size-adjust:100%}
@@ -112,7 +113,11 @@ function FilePanel({file,onClose}){
   const isSvg=file.name.endsWith(".svg");
   const canPreview=isHtml||isSvg;
   useEffect(()=>{
-    if((isHtml||isSvg)&&viewMode==="preview"&&iframeRef.current){const doc=iframeRef.current.contentDocument;doc.open();doc.write(file.code);doc.close();}
+    if((isHtml||isSvg)&&viewMode==="preview"&&iframeRef.current){
+      const iframe=iframeRef.current;
+      // Use srcdoc approach for reliable rendering
+      iframe.srcdoc=file.code;
+    }
   },[file,viewMode,isHtml,isSvg]);
   useEffect(()=>{if(!dragging)return;const mm=e=>{const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;setW(Math.max(25,Math.min(80,100-pct)));};const mu=()=>setDragging(false);document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);document.addEventListener("touchmove",mm);document.addEventListener("touchend",mu);return()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);document.removeEventListener("touchmove",mm);document.removeEventListener("touchend",mu);};},[dragging]);
   function copyCode(){navigator.clipboard.writeText(file.code).then(()=>{});}
@@ -131,7 +136,7 @@ function FilePanel({file,onClose}){
       <button className="dlb" onClick={()=>dlFile(file.name,file.code)} style={{fontSize:11,padding:"4px 10px"}}>{file.name.endsWith(".pdf")?"Save PDF":"Download"}</button>
       <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>✕</button>
     </div>
-    {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}} sandbox="allow-scripts"/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
+    {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}} sandbox="allow-scripts allow-same-origin"/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
   </div></>;
 }
 
@@ -202,9 +207,31 @@ const Ic={
   Del:()=><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg>,
 };
 
+const GOOGLE_CLIENT_ID="515903818908-35mcjhpctmhsh3gs6meuq9ob8q69g8ft.apps.googleusercontent.com";
+
+function decodeJwt(token){try{const base64=token.split(".")[1].replace(/-/g,"+").replace(/_/g,"/");return JSON.parse(decodeURIComponent(atob(base64).split("").map(c=>"%" + ("00"+c.charCodeAt(0).toString(16)).slice(-2)).join("")));}catch{return null;}}
+
 function Login({onLogin}){
-  const[email,setEmail]=useState("");const[ld,setLd]=useState(false);
-  function doEmail(){if(!email.trim())return;setLd(true);setTimeout(()=>onLogin({email:email.trim(),name:email.split("@")[0]}),400);}
+  const gBtnRef=useRef(null);const[ld,setLd]=useState(false);const[err,setErr]=useState("");
+  useEffect(()=>{
+    const interval=setInterval(()=>{
+      if(window.google?.accounts?.id&&gBtnRef.current){
+        clearInterval(interval);
+        window.google.accounts.id.initialize({
+          client_id:GOOGLE_CLIENT_ID,
+          callback:(response)=>{
+            const payload=decodeJwt(response.credential);
+            if(payload){onLogin({email:payload.email,name:payload.name||payload.email.split("@")[0],picture:payload.picture,method:"google"});}
+            else{setErr("Failed to decode login");setLd(false);}
+          },
+        });
+        window.google.accounts.id.renderButton(gBtnRef.current,{
+          type:"standard",theme:"filled_black",size:"large",width:320,text:"continue_with",shape:"pill",logo_alignment:"left",
+        });
+      }
+    },100);
+    return()=>clearInterval(interval);
+  },[]);
   return<div style={{height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
     <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/>
     <div style={{width:380,maxWidth:"90vw",position:"relative",zIndex:1}}>
@@ -213,32 +240,31 @@ function Login({onLogin}){
         <h1 style={{fontSize:28,fontWeight:800,background:"linear-gradient(135deg,#00f0c0,#60a5fa)",WebkitBackgroundClip:"text",WebkitTextFillColor:"transparent"}}>SynthEx</h1>
         <p style={{color:"#64748b",fontSize:13,marginTop:6}}>Sign in to save your conversations</p>
       </div>
-      <div style={{background:"#111827",borderRadius:16,border:"1px solid #1e293b",padding:28,boxShadow:"0 20px 60px rgba(0,0,0,.4)"}}>
-        <button onClick={()=>{setLd(true);setTimeout(()=>onLogin({email:"google-user",name:"User",method:"google"}),500);}} disabled={ld} style={{width:"100%",padding:13,borderRadius:12,border:"1px solid #2d3748",background:"#0d1220",color:"#e2e8f0",fontSize:14,fontWeight:600,fontFamily:"'Outfit',sans-serif",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:10,transition:".2s"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(0,240,192,.3)"} onMouseLeave={e=>e.currentTarget.style.borderColor="#2d3748"}>
-          <svg width="18" height="18" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-          Continue with Google
-        </button>
-        <div style={{display:"flex",alignItems:"center",gap:16,margin:"20px 0"}}><div style={{flex:1,height:1,background:"#1e293b"}}/><span style={{color:"#475569",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>or</span><div style={{flex:1,height:1,background:"#1e293b"}}/></div>
-        <input type="email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")doEmail();}} placeholder="Enter your email address" style={{width:"100%",padding:"12px 14px",borderRadius:10,border:"1px solid #1e293b",background:"#0a0e17",color:"#e2e8f0",fontSize:14,fontFamily:"'Outfit',sans-serif",outline:"none",marginBottom:10,transition:"border-color .2s"}} onFocus={e=>e.target.style.borderColor="rgba(0,240,192,.3)"} onBlur={e=>e.target.style.borderColor="#1e293b"}/>
-        <button onClick={doEmail} disabled={!email.trim()||ld} style={{width:"100%",padding:13,borderRadius:10,border:"none",fontSize:14,fontWeight:700,fontFamily:"'Outfit',sans-serif",cursor:email.trim()?"pointer":"default",background:email.trim()?"linear-gradient(135deg,#00f0c0,#34d399)":"#1e293b",color:email.trim()?"#0a0e17":"#475569",transition:".2s"}}>Continue with email</button>
-        <button onClick={()=>onLogin({email:"guest",name:"Guest"})} style={{width:"100%",marginTop:14,padding:8,background:"none",border:"none",color:"#475569",fontSize:12,cursor:"pointer",fontFamily:"'Outfit'"}} onMouseEnter={e=>e.currentTarget.style.color="#94a3b8"} onMouseLeave={e=>e.currentTarget.style.color="#475569"}>Continue as guest</button>
+      <div style={{background:"#111827",borderRadius:16,border:"1px solid #1e293b",padding:28,boxShadow:"0 20px 60px rgba(0,0,0,.4)",display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
+        <div ref={gBtnRef} style={{minHeight:44,display:"flex",alignItems:"center",justifyContent:"center"}}>{!window.google&&<span style={{color:"#64748b",fontSize:13}}>Loading Google Sign-In...</span>}</div>
+        {err&&<p style={{color:"#ef4444",fontSize:12}}>{err}</p>}
+        <div style={{display:"flex",alignItems:"center",gap:16,width:"100%"}}><div style={{flex:1,height:1,background:"#1e293b"}}/><span style={{color:"#475569",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>or</span><div style={{flex:1,height:1,background:"#1e293b"}}/></div>
+        <button onClick={()=>onLogin({email:"guest",name:"Guest"})} style={{width:"100%",padding:10,background:"none",border:"1px solid #1e293b",borderRadius:10,color:"#94a3b8",fontSize:13,cursor:"pointer",fontFamily:"'Outfit'",transition:".2s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(0,240,192,.3)";e.currentTarget.style.color="#e2e8f0";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#1e293b";e.currentTarget.style.color="#94a3b8";}}>Continue as guest</button>
       </div>
     </div>
   </div>;
 }
 
-function App(){
+function App({user,onLogout}){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
   const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);
   const endR=useRef(null);const abR=useRef(null);const sR=useRef(false);const fR=useRef(null);const mR=useRef(null);const taR=useRef(null);const svT=useRef(null);
 
   const msgs=cur&&chats[cur]?chats[cur].messages:[];
-  const chatRef=useRef(null);const userScrolled=useRef(false);
-  const scr=useCallback(()=>{if(!userScrolled.current)setTimeout(()=>endR.current?.scrollIntoView({behavior:"smooth"}),50);},[]);
-  useEffect(scr,[msgs.length,msgs[msgs.length-1]?.content,scr]);
-  useEffect(()=>{const el=chatRef.current;if(!el)return;const h=()=>{const atBottom=el.scrollHeight-el.scrollTop-el.clientHeight<150;userScrolled.current=!atBottom;};el.addEventListener("scroll",h);return()=>el.removeEventListener("scroll",h);},[]);
-  // Reset scroll lock when new message sent
-  useEffect(()=>{userScrolled.current=false;},[msgs.length]);
+  const chatRef=useRef(null);const userScrolled=useRef(false);const[showScrollBtn,setShowScrollBtn]=useState(false);
+  function scrollToBottom(){userScrolled.current=false;setShowScrollBtn(false);endR.current?.scrollIntoView({behavior:"smooth"});}
+  const scr=useCallback(()=>{if(!userScrolled.current&&endR.current)endR.current.scrollIntoView({behavior:"smooth"});},[]);
+  useEffect(scr,[msgs.length]);
+  // Only auto-scroll on content update if user hasn't scrolled up
+  useEffect(()=>{if(!userScrolled.current&&endR.current&&stm)endR.current.scrollIntoView({behavior:"auto"});},[msgs[msgs.length-1]?.content]);
+  useEffect(()=>{const el=chatRef.current;if(!el)return;const h=()=>{const gap=el.scrollHeight-el.scrollTop-el.clientHeight;const atBottom=gap<100;if(!atBottom&&stm){userScrolled.current=true;setShowScrollBtn(true);}else if(atBottom){userScrolled.current=false;setShowScrollBtn(false);}else{setShowScrollBtn(gap>300);}};el.addEventListener("scroll",h);return()=>el.removeEventListener("scroll",h);},[stm]);
+  // Reset on new user message
+  useEffect(()=>{if(msgs.length>0&&msgs[msgs.length-1]?.role==="assistant"&&msgs[msgs.length-1]?.content===""){userScrolled.current=false;setShowScrollBtn(false);}},[msgs.length]);
   const cids=Object.keys(chats).filter(id=>chats[id].messages.length>0).reverse();
   const filteredCids=search?cids.filter(id=>(chats[id].title||"").toLowerCase().includes(search.toLowerCase())||chats[id].messages.some(m=>m.content&&m.content.toLowerCase().includes(search.toLowerCase()))):cids;
   useEffect(()=>{speechSynthesis.getVoices();},[]);
@@ -316,6 +342,11 @@ function App(){
         <div style={{fontSize:11,fontWeight:600,color:"#475569",textTransform:"uppercase",letterSpacing:1.5,marginBottom:8}}>Model</div>
         {MODELS.map(m=><div key={m.id} className={m.locked?"":"mo"} onClick={()=>{if(!m.locked)setMdl(m);}} style={{padding:"8px 10px",borderRadius:8,cursor:m.locked?"default":"pointer",display:"flex",alignItems:"center",gap:8,marginBottom:3,background:mdl.id===m.id&&!m.locked?"rgba(0,240,192,.03)":"transparent",border:mdl.id===m.id&&!m.locked?"1px solid rgba(0,240,192,.12)":"1px solid transparent",opacity:m.locked?.5:1}}><span style={{width:7,height:7,borderRadius:"50%",background:m.locked?"#475569":m.c,boxShadow:m.locked?"none":"0 0 6px "+m.c+"80",flexShrink:0}}/><div style={{flex:1}}><div style={{fontSize:12,fontWeight:500,display:"flex",alignItems:"center",gap:5}}>{m.nm}{m.locked&&<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>}</div><div style={{fontSize:10,color:"#475569",marginTop:1}}>{m.locked?"Upgrade to Premium":m.desc}</div></div><span style={{fontSize:8,fontWeight:700,padding:"2px 5px",borderRadius:4,textTransform:"uppercase",background:m.locked?"#a78bfa15":m.bg,color:m.locked?"#a78bfa":m.c}}>{m.badge}</span></div>)}
       </div>
+      <div style={{padding:12,borderTop:"1px solid #1e293b",flexShrink:0,display:"flex",alignItems:"center",gap:10}}>
+        {user.picture?<img src={user.picture} alt="" style={{width:32,height:32,borderRadius:"50%",flexShrink:0}}/>:<div style={{width:32,height:32,borderRadius:"50%",background:"#1e293b",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:600,color:"#94a3b8",flexShrink:0}}>{(user.name||"G")[0].toUpperCase()}</div>}
+        <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.name}</div><div style={{fontSize:10,color:"#475569",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user.email}</div></div>
+        <button onClick={onLogout} title="Sign out" style={{background:"none",border:"none",color:"#475569",cursor:"pointer",padding:4,borderRadius:4,transition:".15s"}} onMouseEnter={e=>e.currentTarget.style.color="#ef4444"} onMouseLeave={e=>e.currentTarget.style.color="#475569"}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg></button>
+      </div>
     </aside>
 
     {/* Main */}
@@ -355,7 +386,8 @@ function App(){
         <div ref={endR}/>
       </div>
       {/* Input */}
-      <div style={{padding:IS_MOBILE?"8px 12px 10px":"10px 24px 14px",background:"linear-gradient(180deg,transparent,rgba(13,18,32,.95) 20%)",flexShrink:0}}>
+      <div style={{padding:IS_MOBILE?"8px 12px 10px":"10px 24px 14px",background:"linear-gradient(180deg,transparent,rgba(13,18,32,.95) 20%)",flexShrink:0,position:"relative"}}>
+        {showScrollBtn&&<button onClick={scrollToBottom} style={{position:"absolute",top:-44,left:"50%",transform:"translateX(-50%)",width:36,height:36,borderRadius:"50%",background:"#111827",border:"1px solid #1e293b",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 4px 12px rgba(0,0,0,.4)",zIndex:5,transition:".15s",color:"#94a3b8"}} onMouseEnter={e=>e.currentTarget.style.borderColor="rgba(0,240,192,.3)"} onMouseLeave={e=>e.currentTarget.style.borderColor="#1e293b"}><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="6 9 12 15 18 9"/></svg></button>}
         <div style={{maxWidth:820,margin:"0 auto"}}>
           <div style={{display:"flex",gap:5,marginBottom:6,justifyContent:"center",flexWrap:"wrap"}}>
             {MODES.map((m,i)=><button key={i} className={"mc2"+(mode?.label===m.label?" on":"")} onClick={()=>setMode(mode?.label===m.label?null:m)}><span style={{fontSize:12}}>{m.icon}</span>{m.label}</button>)}
@@ -390,7 +422,7 @@ function AuthWrapper(){
   function login(u){setUser(u);try{localStorage.setItem("sx-user",JSON.stringify(u));}catch{}}
   function logout(){setUser(null);try{localStorage.removeItem("sx-user");}catch{}}
   if(ck)return<div style={{height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
-  return user?<App/>:<Login onLogin={login}/>;
+  return user?<App user={user} onLogout={logout}/>:<Login onLogin={login}/>;
 }
 </script>
 </body>
