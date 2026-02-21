@@ -122,18 +122,23 @@ const SYS=`You are an AI assistant called SynthEx, made by Slipail. Your models 
 
 Be concise. Give short, direct answers. Don't over-explain or add unnecessary context. Match the length and effort to the question — simple questions get short answers.
 
-When generating files, ALWAYS use a code block with the filename comment on the FIRST line inside the code block:
-\`\`\`html
-// filename: example.html
-<html>...</html>
+You can generate files in ANY language/format. Always use a code block with the filename on the first line:
+\`\`\`python
+// filename: chatbot.py
+import random
+...
 \`\`\`
 
-For PDF requests, generate the content as an HTML file with // filename: document.pdf and include full styled HTML content. The system converts it to PDF automatically. Keep generated files focused and complete — never leave them unfinished.`;
+Supported file types: .py, .js, .ts, .java, .cpp, .c, .go, .rs, .html, .css, .json, .xml, .yaml, .toml, .md, .txt, .csv, .sql, .sh, .bat, .rb, .php, .swift, .kt, .r, .lua, .jsx, .tsx, .vue, .svelte, .svg, and more.
+
+For PDFs: generate as HTML with \`// filename: document.pdf\` — the viewer renders it as a styled document, and Save PDF opens the browser's print-to-PDF.
+
+Always use the correct file extension for the language requested. Never default to HTML when another format is asked for. Keep files complete.`;
 
 function parseMd(t){let h=t||"";
-h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="gen-status"><span class="gen-done">✓</span> Generated file</div><div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
+h=h.replace(/```(\w*)\n(?:\/\/|#)\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="gen-status"><span class="gen-done">✓</span> Generated file</div><div class="fb" data-n="'+name.trim()+'" data-l="'+(lang||name.trim().split(".").pop())+'" data-c="'+safe+'"></div>';});
 // Detect in-progress file generation (unclosed code block with filename)
-h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*)$/g,(match,lang,name,code)=>{return'<div class="gen-status"><span class="gen-spinner"></span> Generating '+name.trim()+'...</div><pre data-lang="'+lang+'" style="max-height:200px;overflow-y:auto"><code>'+code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</code></pre>';});
+h=h.replace(/```(\w*)\n(?:\/\/|#)\s*filename:\s*(.+)\n([\s\S]*)$/g,(match,lang,name,code)=>{return'<div class="gen-status"><span class="gen-spinner"></span> Generating '+name.trim()+'...</div><pre data-lang="'+(lang||"")+'" style="max-height:200px;overflow-y:auto"><code>'+code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</code></pre>';});
 h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>'<pre data-lang="'+l+'"><code>'+c.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</code></pre>');
 h=h.replace(/`([^`]+)`/g,'<code class="ic">$1</code>');h=h.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");h=h.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,"<em>$1</em>");
 h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");
@@ -146,13 +151,17 @@ h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" data-ext="1">$1</a>');
 h=h.replace(/(?<!["=])(https?:\/\/[^\s<)]+)/g,'<a href="$1" data-ext="1">$1</a>');
 h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/gm,"<p>$1</p>");return h;}
 
-function dlFile(n,c){if(n.endsWith(".pdf")){
-  const blob=new Blob([c],{type:"text/html"});const url=URL.createObjectURL(blob);
-  const a=document.createElement("a");a.href=url;a.download=n.replace(".pdf",".html");a.click();URL.revokeObjectURL(url);
-  return;}
-  const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+function dlFile(n,c){
+  if(n.endsWith(".pdf")){
+    // PDF: render HTML in iframe and trigger print-to-PDF
+    const w2=window.open("","_blank");if(w2){w2.document.write(c);w2.document.close();setTimeout(()=>{w2.document.title=n;w2.print();},500);}return;
+  }
+  const mimes={".html":"text/html",".htm":"text/html",".css":"text/css",".js":"text/javascript",".ts":"text/typescript",".json":"application/json",".xml":"application/xml",".svg":"image/svg+xml",".csv":"text/csv",".md":"text/markdown",".py":"text/x-python",".java":"text/x-java",".cpp":"text/x-c++src",".c":"text/x-csrc",".go":"text/x-go",".rs":"text/x-rust",".rb":"text/x-ruby",".php":"text/x-php",".sh":"text/x-sh",".bat":"text/x-bat",".sql":"text/x-sql",".yaml":"text/yaml",".yml":"text/yaml",".toml":"text/toml",".lua":"text/x-lua",".swift":"text/x-swift",".kt":"text/x-kotlin",".r":"text/x-r",".jsx":"text/jsx",".tsx":"text/tsx",".vue":"text/x-vue",".svelte":"text/x-svelte"};
+  const ext="."+n.split(".").pop().toLowerCase();const mime=mimes[ext]||"text/plain";
+  const b=new Blob([c],{type:mime});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);
+}
 
-function FilePanel({file,onClose}){
+function FilePanel({file,onClose,onResize}){
   const iframeRef=useRef(null);const[w,setW]=useState(50);const[dragging,setDragging]=useState(false);const[viewMode,setViewMode]=useState("preview");
   const isHtml=file.name.endsWith(".html")||file.name.endsWith(".htm")||file.name.endsWith(".pdf");
   const isSvg=file.name.endsWith(".svg");
@@ -165,11 +174,16 @@ function FilePanel({file,onClose}){
       return()=>URL.revokeObjectURL(url);
     }
   },[file,viewMode,isHtml,isSvg]);
-  useEffect(()=>{if(!dragging)return;const mm=e=>{const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;setW(Math.max(25,Math.min(80,100-pct)));};const mu=()=>setDragging(false);document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);document.addEventListener("touchmove",mm);document.addEventListener("touchend",mu);return()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);document.removeEventListener("touchmove",mm);document.removeEventListener("touchend",mu);};},[dragging]);
+  useEffect(()=>{if(!dragging)return;
+    document.body.style.userSelect="none";document.body.style.cursor="col-resize";
+    const mm=e=>{e.preventDefault();const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;const nw=Math.max(25,Math.min(75,100-pct));setW(nw);if(onResize)onResize(nw);};
+    const mu=()=>{setDragging(false);document.body.style.userSelect="";document.body.style.cursor="";};
+    document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);document.addEventListener("touchmove",mm,{passive:false});document.addEventListener("touchend",mu);
+    return()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);document.removeEventListener("touchmove",mm);document.removeEventListener("touchend",mu);document.body.style.userSelect="";document.body.style.cursor="";};},[dragging]);
   function copyCode(){navigator.clipboard.writeText(file.code).then(()=>{});}
   const showPreview=canPreview&&viewMode==="preview";
   return<><div style={{position:"fixed",left:0,top:0,width:(100-w)+"%",height:"100%",zIndex:29,background:"transparent",pointerEvents:dragging?"auto":"none"}}/>
-  <div className="fpanel" style={{width:w+"%",maxWidth:"none"}}>
+  <div className="fpanel" style={{width:w+"%",maxWidth:"none",pointerEvents:dragging?"none":"auto"}}>
     <div onMouseDown={()=>setDragging(true)} onTouchStart={()=>setDragging(true)} style={{position:"absolute",left:-4,top:0,width:8,height:"100%",cursor:"col-resize",zIndex:2}}><div style={{width:2,height:"100%",margin:"0 auto",background:dragging?"#00f0c0":"transparent",transition:"background .15s"}}/></div>
     <div className="fpanel-bar">
       <div style={{flex:1,display:"flex",alignItems:"center",gap:8,minWidth:0}}>
@@ -190,8 +204,10 @@ function MsgHtml({content,onLink,onView}){
   const ref=useRef(null);
   useEffect(()=>{if(!ref.current)return;
     ref.current.querySelectorAll("pre").forEach(pre=>{if(pre.querySelector(".cpb"))return;const b=document.createElement("button");b.className="cpb";b.textContent="Copy";b.onclick=()=>{navigator.clipboard.writeText(pre.querySelector("code")?.textContent||pre.textContent);b.textContent="Copied!";setTimeout(()=>b.textContent="Copy",1500);};pre.style.position="relative";pre.appendChild(b);});
-    ref.current.querySelectorAll(".fb").forEach(div=>{if(div.childNodes.length>0)return;const nm=div.dataset.n,lang=div.dataset.l,code=decodeURIComponent(escape(atob(div.dataset.c)));const ext=nm.split(".").pop();const ic={py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",sql:"🗄️",cpp:"⚙️",go:"🔷",rs:"🦀"};
-      const card=document.createElement("div");card.className="dlc";card.innerHTML='<div class="dli">'+(ic[ext]||"📄")+'</div><div class="dlf"><div class="dln">'+nm+'</div><div class="dls">'+(nm.endsWith(".pdf")?"PDF document":lang+" · "+code.length+" chars")+'</div></div><div style="display:flex;gap:6px"><button class="dlb vb">View</button><button class="dlb db">'+(nm.endsWith(".pdf")?"Save PDF":"Download")+'</button></div>';
+    ref.current.querySelectorAll(".fb").forEach(div=>{if(div.childNodes.length>0)return;const nm=div.dataset.n,lang=div.dataset.l,code=decodeURIComponent(escape(atob(div.dataset.c)));const ext=nm.split(".").pop();const ic={py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",sql:"🗄️",cpp:"⚙️",go:"🔷",rs:"🦀",rb:"💎",php:"🐘",sh:"🖥️",bat:"🖥️",swift:"🍎",kt:"🟣",r:"📈",lua:"🌙",c:"⚙️",yaml:"📄",yml:"📄",toml:"📄",xml:"📰",vue:"💚",svelte:"🔥",tsx:"⚛️"};
+      const card=document.createElement("div");card.className="dlc";
+      const desc=nm.endsWith(".pdf")?"PDF document":lang+" · "+code.length+" chars";
+      card.innerHTML='<div class="dli">'+(ic[ext]||"📄")+'</div><div class="dlf"><div class="dln">'+nm+'</div><div class="dls">'+desc+'</div></div><div style="display:flex;gap:6px"><button class="dlb vb">View</button><button class="dlb db">'+(nm.endsWith(".pdf")?"Save PDF":"Download")+'</button></div>';
       card.querySelector(".db").onclick=()=>dlFile(nm,code);card.querySelector(".vb").onclick=()=>onView({name:nm,code});div.appendChild(card);});
     ref.current.querySelectorAll("a[data-ext]").forEach(a=>{a.onclick=(e)=>{e.preventDefault();onLink(a.href);};});
   },[content]);
@@ -343,7 +359,7 @@ function Cm({children,ai}){
 function App({user,onLogout}){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState(()=>{try{return localStorage.getItem("sx-draft")||"";}catch{return"";}});const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
   useEffect(()=>{try{localStorage.setItem("sx-draft",input);}catch{}},[input]);
-  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);const[limitMsg,setLimitMsg]=useState(null);const[showPricing,setShowPricing]=useState(false);
+  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);const[limitMsg,setLimitMsg]=useState(null);const[showPricing,setShowPricing]=useState(false);const[fpW,setFpW]=useState(50);
   // Usage limits: per model tier, 6 hour window
   const LIMITS={
     "claude-opus-4-6":{msgs:25,window:6*60*60*1000},
@@ -461,7 +477,7 @@ function App({user,onLogout}){
     {linkUrl&&<LinkModal url={linkUrl} onClose={()=>setLinkUrl(null)} onGo={()=>{window.open(linkUrl,"_blank");setLinkUrl(null);}}/>}
     {renChat&&<RenameModal name={chats[renChat]?.title||""} onClose={()=>setRenChat(null)} onSave={n=>renameChat(renChat,n)}/>}
     {delChatId&&chats[delChatId]&&<DeleteModal name={chats[delChatId].title||"this chat"} onClose={()=>setDelChatId(null)} onDelete={()=>delChat(delChatId)}/>}
-    {viewF&&<FilePanel file={viewF} onClose={()=>setViewF(null)}/>}
+    {viewF&&<FilePanel file={viewF} onClose={()=>setViewF(null)} onResize={setFpW}/>}
     {lbSrc&&<ImageLightbox src={lbSrc} onClose={()=>setLbSrc(null)}/>}
     {limitMsg&&<div className="overlay" onClick={()=>setLimitMsg(null)}><div className="modal" onClick={e=>e.stopPropagation()} style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:12}}>⏳</div><h3>Message Limit Reached</h3><p>{limitMsg}</p><p style={{fontSize:12,color:"#64748b"}}>Try switching to a different model.</p><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:4}}>{MODELS.filter(m=>!m.locked&&m.id!==mdl.id).map(m=><button key={m.id} className="mbtn" onClick={()=>{setMdl(m);setLimitMsg(null);}} style={{background:m.c+"20",color:m.c,border:"1px solid "+m.c+"40",padding:"6px 14px",fontSize:12}}>{m.nm}</button>)}</div><button className="mbtn mbtn-cancel" onClick={()=>setLimitMsg(null)} style={{marginTop:14,width:"100%"}}>OK</button></div></div>}
     {showPricing&&<PricingPage onClose={()=>setShowPricing(false)}/>}
@@ -488,7 +504,7 @@ function App({user,onLogout}){
     </aside>
 
     {/* Main */}
-    <main style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,position:"relative",zIndex:1,marginRight:viewF&&!IS_MOBILE?"45%":0,transition:"margin .2s"}}>
+    <main style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,position:"relative",zIndex:1,marginRight:viewF&&!IS_MOBILE?fpW+"%":0,transition:viewF?"none":"margin .2s"}}>
       <div style={{padding:"10px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10,background:"rgba(13,18,32,.8)",backdropFilter:"blur(20px)",flexShrink:0}}>
         <button onClick={()=>setSb(!sb)} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>☰</button>
         <span style={{fontFamily:"'JetBrains Mono'",fontSize:11,color:mdl.c,background:mdl.c+"10",padding:"3px 8px",borderRadius:6,border:"1px solid "+mdl.c+"20",display:"flex",alignItems:"center",gap:5}}><span style={{width:5,height:5,borderRadius:"50%",background:mdl.c}}/>{mdl.nm}</span>
