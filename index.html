@@ -102,7 +102,8 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 </head>
 <body>
 <div id="root"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
@@ -158,16 +159,38 @@ h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/
 function dlFile(n,c){
   const ext=n.split(".").pop().toLowerCase();
   if(ext==="pdf"){
-    // Render HTML in a visible iframe, then use html2pdf on it
+    const{jsPDF}=window.jspdf;
+    // Create visible iframe to render HTML
     const iframe=document.createElement("iframe");
-    iframe.style.cssText="position:fixed;top:0;left:0;width:800px;height:1200px;opacity:0;pointer-events:none;z-index:-1;";
+    iframe.style.cssText="position:fixed;top:0;left:0;width:794px;height:1123px;opacity:0.01;z-index:-1;border:none;";
     document.body.appendChild(iframe);
-    const idoc=iframe.contentDocument;idoc.open();idoc.write(c);idoc.close();
-    iframe.onload=()=>{
-      setTimeout(()=>{
-        html2pdf().set({margin:[10,10,10,10],filename:n,image:{type:"jpeg",quality:.98},html2canvas:{scale:2,useCORS:true,logging:false,width:780,windowWidth:780},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}}).from(idoc.body).save().then(()=>{document.body.removeChild(iframe);}).catch(e=>{console.error("PDF error:",e);document.body.removeChild(iframe);});
-      },500); // Wait for styles/fonts to load
-    };
+    const idoc=iframe.contentDocument;
+    // Inject white background wrapper
+    const wrapped='<!DOCTYPE html><html><head><style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{margin:0;padding:20px;background:#fff;color:#000;font-family:system-ui,sans-serif}</style></head><body>'+c.replace(/<html[^>]*>|<\/html>|<head>[\s\S]*?<\/head>|<!DOCTYPE[^>]*>/gi,'').replace(/<body[^>]*>/gi,'').replace(/<\/body>/gi,'')+'</body></html>';
+    idoc.open();idoc.write(wrapped);idoc.close();
+    setTimeout(async()=>{
+      try{
+        const body=idoc.body;
+        const totalH=body.scrollHeight;
+        const pageW=794;const pageH=1123;const margin=20;
+        const usableH=pageH-margin*2;
+        const canvas=await html2canvas(body,{scale:2,useCORS:true,logging:false,width:pageW,windowWidth:pageW,height:totalH,windowHeight:totalH,backgroundColor:"#ffffff"});
+        const pdf=new jsPDF("p","px",[pageW,pageH]);
+        const imgData=canvas.toDataURL("image/jpeg",0.95);
+        const imgW=pageW-margin*2;const imgH=canvas.height*(imgW/canvas.width);
+        let y=margin;let page=0;
+        while(y-margin<imgH){
+          if(page>0)pdf.addPage();
+          pdf.addImage(imgData,"JPEG",margin,margin-(page*(usableH)),imgW,imgH);
+          y+=usableH;page++;
+        }
+        pdf.save(n);
+      }catch(e){console.error("PDF gen error:",e);
+        // Fallback: download as HTML
+        const b=new Blob([c],{type:"text/html"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n.replace(".pdf",".html");a.click();URL.revokeObjectURL(u);
+      }
+      document.body.removeChild(iframe);
+    },800);
     return;
   }
   if(ext==="xlsx"||ext==="xls"){
@@ -223,6 +246,18 @@ function buildPreview(name,code){
     return'<!DOCTYPE html><html><head><style>body{margin:0;padding:16px;background:#1e1e2e;color:#cdd6f4;font-family:monospace;font-size:13px;white-space:pre;overflow:auto;line-height:1.5}.s{color:#a6e3a1}.n{color:#fab387}.k{color:#89b4fa}.b{color:#f38ba8}.null{color:#6c7086}</style></head><body>'+pretty.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"([^"]+)"(\s*:)/g,'<span class="k">"$1"</span>$2').replace(/"([^"]*)"/g,'<span class="s">"$1"</span>').replace(/\b(\d+\.?\d*)\b/g,'<span class="n">$1</span>').replace(/\b(true|false)\b/g,'<span class="b">$1</span>').replace(/\bnull\b/g,'<span class="null">null</span>')+'</body></html>';
     }catch{/* fall through to code */}
   }
+  // Runnable code files — Python (Pyodide) and JavaScript
+  const runnable=["py","js","javascript","typescript","ts","lua"];
+  if(runnable.includes(ext)){
+    const esc=code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    if(ext==="py"){
+      return'<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0}body{background:#1e1e2e;color:#cdd6f4;font-family:monospace;display:flex;flex-direction:column;height:100vh}.toolbar{padding:8px 12px;background:#11111b;border-bottom:1px solid #313244;display:flex;align-items:center;gap:8px}.run-btn{background:#a6e3a1;color:#1e1e2e;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;font-family:system-ui}.run-btn:hover{background:#94e2d5}.status{font-size:11px;color:#6c7086}.code-area{flex:1;overflow:auto;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap}.console{background:#11111b;border-top:1px solid #313244;min-height:120px;max-height:40vh;overflow:auto;padding:10px 12px;font-size:12px;line-height:1.5}.console-header{font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.out{color:#a6e3a1}.err{color:#f38ba8}</style></head><body><div class="toolbar"><button class="run-btn" id="runBtn" onclick="runCode()">▶ Run</button><span class="status" id="status">Ready</span></div><div class="code-area">'+esc+'</div><div class="console"><div class="console-header">Console Output</div><pre id="output" style="margin:0;white-space:pre-wrap"></pre></div><script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"><'+'/script><script>let pyodide=null;const out=document.getElementById("output");const status=document.getElementById("status");const btn=document.getElementById("runBtn");async function runCode(){btn.disabled=true;btn.textContent="Loading...";out.innerHTML="";try{if(!pyodide){status.textContent="Loading Python...";pyodide=await loadPyodide();status.textContent="Python ready";}btn.textContent="Running...";pyodide.runPython("import sys;from io import StringIO;sys.stdout=StringIO();sys.stderr=StringIO()");pyodide.runPython('+JSON.stringify(code)+');const stdout=pyodide.runPython("sys.stdout.getvalue()");const stderr=pyodide.runPython("sys.stderr.getvalue()");if(stdout)out.innerHTML+="<span class=\\"out\\">"+stdout.replace(/</g,"&lt;")+"</span>";if(stderr)out.innerHTML+="<span class=\\"err\\">"+stderr.replace(/</g,"&lt;")+"</span>";if(!stdout&&!stderr)out.innerHTML="<span class=\\"out\\">Program completed (no output)</span>";}catch(e){out.innerHTML="<span class=\\"err\\">"+String(e).replace(/</g,"&lt;")+"</span>";}btn.disabled=false;btn.textContent="▶ Run";}<'+'/script></body></html>';
+    }
+    if(ext==="js"||ext==="javascript"||ext==="ts"||ext==="typescript"){
+      return'<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0}body{background:#1e1e2e;color:#cdd6f4;font-family:monospace;display:flex;flex-direction:column;height:100vh}.toolbar{padding:8px 12px;background:#11111b;border-bottom:1px solid #313244;display:flex;align-items:center;gap:8px}.run-btn{background:#89b4fa;color:#1e1e2e;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;font-family:system-ui}.run-btn:hover{background:#74c7ec}.code-area{flex:1;overflow:auto;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap}.console{background:#11111b;border-top:1px solid #313244;min-height:120px;max-height:40vh;overflow:auto;padding:10px 12px;font-size:12px;line-height:1.5}.console-header{font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.out{color:#a6e3a1}.err{color:#f38ba8}</style></head><body><div class="toolbar"><button class="run-btn" onclick="runCode()">▶ Run</button></div><div class="code-area">'+esc+'</div><div class="console"><div class="console-header">Console Output</div><pre id="output" style="margin:0;white-space:pre-wrap"></pre></div><script>function runCode(){const out=document.getElementById("output");out.innerHTML="";const origLog=console.log;const origErr=console.error;const logs=[];console.log=(...a)=>{logs.push("<span class=\\"out\\">"+a.map(x=>typeof x==="object"?JSON.stringify(x,null,2):String(x)).join(" ").replace(/</g,"&lt;")+"</span>");};console.error=(...a)=>{logs.push("<span class=\\"err\\">"+a.join(" ").replace(/</g,"&lt;")+"</span>");};try{const result=new Function('+JSON.stringify(code)+')();if(result!==undefined)logs.push("<span class=\\"out\\">→ "+String(result).replace(/</g,"&lt;")+"</span>");}catch(e){logs.push("<span class=\\"err\\">"+String(e).replace(/</g,"&lt;")+"</span>");}console.log=origLog;console.error=origErr;out.innerHTML=logs.join("\\n")||"<span class=\\"out\\">Program completed (no output)</span>";}<'+'/script></body></html>';
+    }
+  }
+
   // XML/YAML/TOML/config — fall through to Prism syntax highlighting below
   // Code files — syntax highlighted with Prism via CDN
   const langMap={py:"python",js:"javascript",ts:"typescript",jsx:"jsx",tsx:"tsx",java:"java",cpp:"cpp",c:"c",cs:"csharp",go:"go",rs:"rust",rb:"ruby",php:"php",swift:"swift",kt:"kotlin",r:"r",lua:"lua",sh:"bash",bash:"bash",zsh:"bash",bat:"batch",ps1:"powershell",sql:"sql",dart:"dart",scala:"scala",perl:"perl",hs:"haskell",ex:"elixir",exs:"elixir",clj:"clojure",groovy:"groovy",m:"objectivec",mm:"objectivec",zig:"zig",nim:"nim",v:"v",sol:"solidity",vue:"markup",svelte:"markup",scss:"scss",sass:"sass",less:"less",styl:"stylus",coffee:"coffeescript",graphql:"graphql",gql:"graphql",proto:"protobuf",tf:"hcl",dockerfile:"docker",makefile:"makefile",cmake:"cmake",gradle:"groovy",css:"css",html:"markup",xml:"markup",yaml:"yaml",toml:"toml",ini:"ini",txt:"none"};
