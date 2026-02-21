@@ -147,14 +147,13 @@ h=h.replace(/(?<!["=])(https?:\/\/[^\s<)]+)/g,'<a href="$1" data-ext="1">$1</a>'
 h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/gm,"<p>$1</p>");return h;}
 
 function dlFile(n,c){if(n.endsWith(".pdf")){
-  // Open HTML in hidden iframe, use print-to-pdf via blob
   const blob=new Blob([c],{type:"text/html"});const url=URL.createObjectURL(blob);
   const a=document.createElement("a");a.href=url;a.download=n.replace(".pdf",".html");a.click();URL.revokeObjectURL(url);
   return;}
   const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
 
-function FilePanel({file,onClose,inline}){
-  const iframeRef=useRef(null);const[viewMode,setViewMode]=useState("preview");
+function FilePanel({file,onClose}){
+  const iframeRef=useRef(null);const[w,setW]=useState(50);const[dragging,setDragging]=useState(false);const[viewMode,setViewMode]=useState("preview");
   const isHtml=file.name.endsWith(".html")||file.name.endsWith(".htm")||file.name.endsWith(".pdf");
   const isSvg=file.name.endsWith(".svg");
   const canPreview=isHtml||isSvg;
@@ -166,10 +165,12 @@ function FilePanel({file,onClose,inline}){
       return()=>URL.revokeObjectURL(url);
     }
   },[file,viewMode,isHtml,isSvg]);
-  function copyCode(){navigator.clipboard.writeText(file.code);}
+  useEffect(()=>{if(!dragging)return;const mm=e=>{const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;setW(Math.max(25,Math.min(80,100-pct)));};const mu=()=>setDragging(false);document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);document.addEventListener("touchmove",mm);document.addEventListener("touchend",mu);return()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);document.removeEventListener("touchmove",mm);document.removeEventListener("touchend",mu);};},[dragging]);
+  function copyCode(){navigator.clipboard.writeText(file.code).then(()=>{});}
   const showPreview=canPreview&&viewMode==="preview";
-  const wrapper=inline?{display:"flex",flexDirection:"column",height:"100%"}:{};
-  return<div style={wrapper}>
+  return<><div style={{position:"fixed",left:0,top:0,width:(100-w)+"%",height:"100%",zIndex:29,background:"transparent",pointerEvents:dragging?"auto":"none"}}/>
+  <div className="fpanel" style={{width:w+"%",maxWidth:"none"}}>
+    <div onMouseDown={()=>setDragging(true)} onTouchStart={()=>setDragging(true)} style={{position:"absolute",left:-4,top:0,width:8,height:"100%",cursor:"col-resize",zIndex:2}}><div style={{width:2,height:"100%",margin:"0 auto",background:dragging?"#00f0c0":"transparent",transition:"background .15s"}}/></div>
     <div className="fpanel-bar">
       <div style={{flex:1,display:"flex",alignItems:"center",gap:8,minWidth:0}}>
         <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",svg:"🎨",xml:"📰",yaml:"📄",sh:"🖥️",sql:"🗄️"})[file.name.split(".").pop()]||"📄"}</span>
@@ -182,7 +183,7 @@ function FilePanel({file,onClose,inline}){
       <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>✕</button>
     </div>
     {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}}/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
-  </div>;
+  </div></>;
 }
 
 function MsgHtml({content,onLink,onView}){
@@ -460,12 +461,12 @@ function App({user,onLogout}){
     {linkUrl&&<LinkModal url={linkUrl} onClose={()=>setLinkUrl(null)} onGo={()=>{window.open(linkUrl,"_blank");setLinkUrl(null);}}/>}
     {renChat&&<RenameModal name={chats[renChat]?.title||""} onClose={()=>setRenChat(null)} onSave={n=>renameChat(renChat,n)}/>}
     {delChatId&&chats[delChatId]&&<DeleteModal name={chats[delChatId].title||"this chat"} onClose={()=>setDelChatId(null)} onDelete={()=>delChat(delChatId)}/>}
+    {viewF&&<FilePanel file={viewF} onClose={()=>setViewF(null)}/>}
     {lbSrc&&<ImageLightbox src={lbSrc} onClose={()=>setLbSrc(null)}/>}
     {limitMsg&&<div className="overlay" onClick={()=>setLimitMsg(null)}><div className="modal" onClick={e=>e.stopPropagation()} style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:12}}>⏳</div><h3>Message Limit Reached</h3><p>{limitMsg}</p><p style={{fontSize:12,color:"#64748b"}}>Try switching to a different model.</p><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:4}}>{MODELS.filter(m=>!m.locked&&m.id!==mdl.id).map(m=><button key={m.id} className="mbtn" onClick={()=>{setMdl(m);setLimitMsg(null);}} style={{background:m.c+"20",color:m.c,border:"1px solid "+m.c+"40",padding:"6px 14px",fontSize:12}}>{m.nm}</button>)}</div><button className="mbtn mbtn-cancel" onClick={()=>setLimitMsg(null)} style={{marginTop:14,width:"100%"}}>OK</button></div></div>}
     {showPricing&&<PricingPage onClose={()=>setShowPricing(false)}/>}
-    </main>
-    {viewF&&<div style={{width:IS_MOBILE?"100%":"45%",maxWidth:700,height:"100%",background:"#111827",borderLeft:"1px solid #1e293b",display:"flex",flexDirection:"column",flexShrink:0,animation:"fpSlide .2s ease"}}><FilePanel file={viewF} onClose={()=>setViewF(null)} inline/></div>}
-    </div>
+
+    {/* Mobile sidebar overlay */}
     {IS_MOBILE&&sb&&<div className="sb-overlay" onClick={()=>setSb(false)}/>}
 
     {/* Sidebar */}
@@ -487,8 +488,7 @@ function App({user,onLogout}){
     </aside>
 
     {/* Main */}
-    <div style={{flex:1,display:"flex",minWidth:0}}>
-    <main style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,position:"relative",zIndex:1}}>
+    <main style={{flex:1,display:"flex",flexDirection:"column",minWidth:0,position:"relative",zIndex:1,marginRight:viewF&&!IS_MOBILE?"45%":0,transition:"margin .2s"}}>
       <div style={{padding:"10px 16px",borderBottom:"1px solid #1e293b",display:"flex",alignItems:"center",gap:10,background:"rgba(13,18,32,.8)",backdropFilter:"blur(20px)",flexShrink:0}}>
         <button onClick={()=>setSb(!sb)} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>☰</button>
         <span style={{fontFamily:"'JetBrains Mono'",fontSize:11,color:mdl.c,background:mdl.c+"10",padding:"3px 8px",borderRadius:6,border:"1px solid "+mdl.c+"20",display:"flex",alignItems:"center",gap:5}}><span style={{width:5,height:5,borderRadius:"50%",background:mdl.c}}/>{mdl.nm}</span>
@@ -550,9 +550,7 @@ function App({user,onLogout}){
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#475569"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}</span><span style={{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono'"}}>{(()=>{const l=checkLimit();if(!l.ok){const ms=l.reset-Date.now();const hrs=Math.floor(ms/3600000);const mins=Math.ceil((ms%3600000)/60000);const tStr=hrs>0?hrs+"h "+mins+"m":mins+"m";return<span style={{color:"#ef4444"}}>⏳ {tStr}</span>;}const pct=l.left/l.max;const col=pct>0.5?"#00f0c0":pct>0.2?"#f59e0b":"#ef4444";return<span style={{color:col}}>{l.left}/{l.max}</span>;})()}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{color:mdl.c}}>{mdl.nm}</span></span></div>
         </div>
       </div>
-
-    {/* Mobile sidebar overlay */}
-    {IS_MOBILE&&sb&&<div className="sb-overlay" onClick={()=>setSb(false)}/>}
+    </main>
   </div>;
 }
 
