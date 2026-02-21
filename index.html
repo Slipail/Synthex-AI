@@ -29,7 +29,7 @@ if (FIREBASE_CONFIG.apiKey) {
 }
 </script>
 <style>
-*{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100dvh;height:100vh;overflow:hidden}
+*{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100%;overflow:hidden;position:fixed;width:100%;top:0;left:0}
 body{background:#0a0e17;color:#e2e8f0;font-family:'Outfit','Segoe UI',sans-serif;-webkit-text-size-adjust:100%}
 input,textarea,button{font-size:16px}
 ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:rgba(100,116,139,.2);border-radius:10px}
@@ -80,7 +80,7 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 .ctx-menu{position:absolute;right:8px;top:50%;transform:translateY(-50%);display:none;gap:2px}
 .ci:hover .ctx-menu{display:flex}
 .ctx-btn{background:none;border:none;color:#475569;cursor:pointer;padding:2px;border-radius:3px;display:flex;align-items:center;transition:.1s}.ctx-btn:hover{color:#00f0c0}
-.fpanel{position:fixed;top:0;right:0;width:50%;height:100dvh;height:100%;background:#111827;border-left:1px solid #1e293b;z-index:30;display:flex;flex-direction:column;animation:fpSlide .2s ease;box-shadow:-8px 0 30px rgba(0,0,0,.4)}
+.fpanel{position:fixed;top:0;right:0;width:50%;height:100%;background:#111827;border-left:1px solid #1e293b;z-index:30;display:flex;flex-direction:column;animation:fpSlide .2s ease;box-shadow:-8px 0 30px rgba(0,0,0,.4)}
 @keyframes fpSlide{from{transform:translateX(100%)}to{transform:translateX(0)}}
 .fpanel-bar{padding:10px 16px;border-bottom:1px solid #1e293b;display:flex;align-items:center;gap:10px;flex-shrink:0}
 .fpanel iframe,.fpanel pre{flex:1;border:none;width:100%;background:#0a0e17}
@@ -289,7 +289,7 @@ function Login({onLogin}){
     },100);
     return()=>clearInterval(interval);
   },[]);
-  return<div style={{height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
+  return<div style={{height:"100%",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17",position:"relative",overflow:"hidden"}}>
     <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/>
     <div style={{width:380,maxWidth:"90vw",position:"relative",zIndex:1}}>
       <div style={{textAlign:"center",marginBottom:32}}>
@@ -315,11 +315,16 @@ function Cm({children,ai}){
 function App({user,onLogout}){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
   const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);
-  // Usage limits: 25 messages per 3 hours per model tier
-  const LIMITS={free:{msgs:25,window:3*60*60*1000}};
+  // Usage limits: per model tier, 6 hour window
+  const LIMITS={
+    "claude-opus-4-6":{msgs:25,window:6*60*60*1000},
+    "claude-sonnet-4-6":{msgs:15,window:6*60*60*1000},
+    "claude-sonnet-4-5-20250929":{msgs:15,window:6*60*60*1000},
+    "claude-haiku-4-5-20251001":{msgs:25,window:6*60*60*1000},
+  };
   function getUsage(){try{return JSON.parse(localStorage.getItem("sx-usage")||"{}") }catch{return{};}}
-  function checkLimit(){const u=getUsage();const now=Date.now();const k=mdl.id;if(!u[k])return{ok:true,left:LIMITS.free.msgs};const recent=u[k].filter(t=>now-t<LIMITS.free.window);if(recent.length>=LIMITS.free.msgs){const oldest=Math.min(...recent);const reset=new Date(oldest+LIMITS.free.window);return{ok:false,left:0,reset};}return{ok:true,left:LIMITS.free.msgs-recent.length};}
-  function recordUsage(){const u=getUsage();const k=mdl.id;const now=Date.now();u[k]=(u[k]||[]).filter(t=>now-t<LIMITS.free.window);u[k].push(now);localStorage.setItem("sx-usage",JSON.stringify(u));}
+  function checkLimit(){const u=getUsage();const now=Date.now();const k=mdl.id;const lim=LIMITS[k]||{msgs:25,window:6*60*60*1000};if(!u[k])return{ok:true,left:lim.msgs,max:lim.msgs};const recent=u[k].filter(t=>now-t<lim.window);if(recent.length>=lim.msgs){const oldest=Math.min(...recent);const reset=new Date(oldest+lim.window);return{ok:false,left:0,max:lim.msgs,reset};}return{ok:true,left:lim.msgs-recent.length,max:lim.msgs};}
+  function recordUsage(){const u=getUsage();const k=mdl.id;const now=Date.now();const lim=LIMITS[k]||{msgs:25,window:6*60*60*1000};u[k]=(u[k]||[]).filter(t=>now-t<lim.window);u[k].push(now);localStorage.setItem("sx-usage",JSON.stringify(u));}
   const endR=useRef(null);const abR=useRef(null);const sR=useRef(false);const fR=useRef(null);const mR=useRef(null);const taR=useRef(null);const svT=useRef(null);
 
   const msgs=cur&&chats[cur]?chats[cur].messages:[];
@@ -338,11 +343,11 @@ function App({user,onLogout}){
   useEffect(()=>{if(taR.current&&!IS_MOBILE)taR.current.focus();},[cur,msgs.length===0]);
   // Fix mobile keyboard viewport
   useEffect(()=>{if(!IS_MOBILE)return;
-    const setH=()=>{document.documentElement.style.height=(window.visualViewport?.height||window.innerHeight)+"px";document.body.style.height=(window.visualViewport?.height||window.innerHeight)+"px";};
+    const setH=()=>{const h=window.visualViewport?.height||window.innerHeight;document.getElementById("root").style.height=h+"px";};
     setH();
-    if(window.visualViewport){window.visualViewport.addEventListener("resize",setH);window.visualViewport.addEventListener("scroll",setH);}
+    if(window.visualViewport){window.visualViewport.addEventListener("resize",setH);window.visualViewport.addEventListener("scroll",()=>{window.scrollTo(0,0);setH();});}
     window.addEventListener("resize",setH);
-    return()=>{if(window.visualViewport){window.visualViewport.removeEventListener("resize",setH);window.visualViewport.removeEventListener("scroll",setH);}window.removeEventListener("resize",setH);};
+    return()=>{if(window.visualViewport){window.visualViewport.removeEventListener("resize",setH);}window.removeEventListener("resize",setH);};
   },[]);
   useEffect(()=>{function gk(e){if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.isContentEditable||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key.length===1&&taR.current){taR.current.focus();}}document.addEventListener("keydown",gk);return()=>document.removeEventListener("keydown",gk);},[]);
   useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
@@ -420,7 +425,7 @@ function App({user,onLogout}){
   function togSpk(i,t){if(spk===i){speechSynthesis.cancel();setSpk(null);}else{speakT(t,()=>setSpk(null));setSpk(i);}}
   const wel=msgs.length===0;
 
-  return<div style={{display:"flex",height:"100dvh",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Outfit','Segoe UI',sans-serif",position:"relative",overflow:"hidden"}} onDrop={e=>{e.preventDefault();setDg(false);hFiles(e.dataTransfer.files);}} onDragOver={e=>{e.preventDefault();setDg(true);}} onDragLeave={()=>setDg(false)}>
+  return<div style={{display:"flex",height:"100%",background:"#0a0e17",color:"#e2e8f0",fontFamily:"'Outfit','Segoe UI',sans-serif",position:"relative",overflow:"hidden"}} onDrop={e=>{e.preventDefault();setDg(false);hFiles(e.dataTransfer.files);}} onDragOver={e=>{e.preventDefault();setDg(true);}} onDragLeave={()=>setDg(false)}>
     <div className="gridbg"/><div className="gorb" style={{width:500,height:500,background:"#00f0c0",top:-150,left:-100,animation:"of 15s ease-in-out infinite"}}/><div className="gorb" style={{width:400,height:400,background:"#a78bfa",bottom:-100,right:-80,animation:"of 18s ease-in-out infinite reverse"}}/><div className="gorb" style={{width:300,height:300,background:"#60a5fa",top:"40%",left:"50%",animation:"of 12s ease-in-out infinite 3s"}}/>
     {dg&&<div className="dov"><span style={{color:"#00f0c0",fontSize:20,fontWeight:600}}>Drop files here</span></div>}
     <input ref={fR} type="file" multiple accept="image/*,.pdf,.txt,.csv,.json,.js,.py,.html,.css,.md,.ts,.jsx,.tsx,.sql,.java,.cpp,.c,.rb,.go,.rs,.sh,.php,.xml,.yaml,.yml" style={{display:"none"}} onChange={e=>{hFiles(e.target.files);e.target.value="";}}/>
@@ -511,7 +516,7 @@ function App({user,onLogout}){
               </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#334155"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}{(()=>{const l=checkLimit();if(!l.ok){const mins=Math.ceil((l.reset-Date.now())/60000);return"⏳ Resets in "+mins+"min";}return l.left+"/25";})()}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{fontFamily:"'JetBrains Mono'",color:mdl.c}}>{mdl.nm}</span></span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#475569"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}</span><span style={{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono'"}}>{(()=>{const l=checkLimit();if(!l.ok){const mins=Math.ceil((l.reset-Date.now())/60000);return<span style={{color:"#ef4444"}}>⏳ Resets in {mins}min</span>;}const pct=l.left/l.max;const col=pct>0.5?"#00f0c0":pct>0.2?"#f59e0b":"#ef4444";return<span style={{color:col}}>{l.left}/{l.max}</span>;})()}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{color:mdl.c}}>{mdl.nm}</span></span></div>
         </div>
       </div>
     </main>
@@ -525,7 +530,7 @@ function AuthWrapper(){
   useEffect(()=>{try{const d=localStorage.getItem("sx-user");if(d)setUser(JSON.parse(d));}catch{}setCk(false);},[]);
   function login(u){setUser(u);try{localStorage.setItem("sx-user",JSON.stringify(u));}catch{}}
   function logout(){setUser(null);try{localStorage.removeItem("sx-user");}catch{}}
-  if(ck)return<div style={{height:"100dvh",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
+  if(ck)return<div style={{height:"100%",display:"flex",alignItems:"center",justifyContent:"center",background:"#0a0e17"}}><div style={{width:50,height:50,borderRadius:14,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'JetBrains Mono'",fontWeight:700,fontSize:18,color:"#0a0e17",animation:"wp 2s ease-in-out infinite"}}>SX</div></div>;
   return user?<App user={user} onLogout={logout}/>:<Login onLogin={login}/>;
 }
 </script>
