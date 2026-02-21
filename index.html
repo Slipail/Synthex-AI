@@ -161,19 +161,67 @@ function dlFile(n,c){
   const b=new Blob([c],{type:mime});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);
 }
 
+function buildPreview(name,code){
+  const ext=name.split(".").pop().toLowerCase();
+  // HTML/SVG/PDF — render directly
+  if(["html","htm","pdf","svg"].includes(ext))return code;
+  // Markdown — render to styled HTML
+  if(["md","markdown"].includes(ext)){
+    let md=code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    md=md.replace(/^### (.+)$/gm,"<h3>$1</h3>");md=md.replace(/^## (.+)$/gm,"<h2>$1</h2>");md=md.replace(/^# (.+)$/gm,"<h1>$1</h1>");
+    md=md.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");md=md.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,"<em>$1</em>");
+    md=md.replace(/`([^`]+)`/g,'<code style="background:#f0f0f0;padding:2px 4px;border-radius:3px">$1</code>');
+    md=md.replace(/^- (.+)$/gm,"<li>$1</li>");md=md.replace(/^> (.+)$/gm,"<blockquote style='border-left:3px solid #ddd;padding-left:12px;color:#555'>$1</blockquote>");
+    md=md.replace(/\n/g,"<br>");
+    return'<!DOCTYPE html><html><head><style>body{font-family:system-ui;max-width:800px;margin:20px auto;padding:0 20px;line-height:1.7;color:#1a1a2e}h1,h2,h3{margin-top:20px}code{font-family:monospace}li{margin-left:20px}</style></head><body>'+md+'</body></html>';
+  }
+  // CSV/TSV — render as table
+  if(["csv","tsv"].includes(ext)){
+    const sep=ext==="tsv"?"\t":",";const rows=code.trim().split("\n").map(r=>{
+      const cells=[];let cur="",inQ=false;for(let i=0;i<r.length;i++){const c=r[i];if(c==='"')inQ=!inQ;else if(c===sep&&!inQ){cells.push(cur);cur="";}else cur+=c;}cells.push(cur);return cells;
+    });
+    let tbl='<table border="1" cellpadding="8" cellspacing="0" style="border-collapse:collapse;font-family:system-ui;font-size:13px;width:100%">';
+    if(rows.length>0){tbl+='<thead style="background:#f0f4ff;font-weight:600"><tr>'+rows[0].map(c=>'<th style="border:1px solid #d0d0d0;padding:8px;text-align:left">'+c+'</th>').join("")+'</tr></thead>';}
+    tbl+='<tbody>'+rows.slice(1).map((r,i)=>'<tr style="background:'+(i%2?"#fafafa":"#fff")+'">'+r.map(c=>'<td style="border:1px solid #e0e0e0;padding:6px 8px">'+c+'</td>').join("")+'</tr>').join("")+'</tbody></table>';
+    return'<!DOCTYPE html><html><head><style>body{margin:16px;font-family:system-ui}</style></head><body>'+tbl+'</body></html>';
+  }
+  // JSON — formatted + collapsible
+  if(ext==="json"){
+    try{const pretty=JSON.stringify(JSON.parse(code),null,2);
+    return'<!DOCTYPE html><html><head><style>body{margin:0;padding:16px;background:#1e1e2e;color:#cdd6f4;font-family:monospace;font-size:13px;white-space:pre;overflow:auto;line-height:1.5}.s{color:#a6e3a1}.n{color:#fab387}.k{color:#89b4fa}.b{color:#f38ba8}.null{color:#6c7086}</style></head><body>'+pretty.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"([^"]+)"(\s*:)/g,'<span class="k">"$1"</span>$2').replace(/"([^"]*)"/g,'<span class="s">"$1"</span>').replace(/\b(\d+\.?\d*)\b/g,'<span class="n">$1</span>').replace(/\b(true|false)\b/g,'<span class="b">$1</span>').replace(/\bnull\b/g,'<span class="null">null</span>')+'</body></html>';
+    }catch{/* fall through to code */}
+  }
+  // XML/YAML/TOML — syntax colored
+  if(["xml","yaml","yml","toml","ini","env","conf","cfg"].includes(ext)){
+    const esc=code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    return'<!DOCTYPE html><html><head><style>body{margin:0;padding:16px;background:#1e1e2e;color:#cdd6f4;font-family:monospace;font-size:13px;white-space:pre-wrap;line-height:1.6;overflow:auto}</style></head><body>'+esc+'</body></html>';
+  }
+  // Code files — syntax highlighted with Prism via CDN
+  const langMap={py:"python",js:"javascript",ts:"typescript",jsx:"jsx",tsx:"tsx",java:"java",cpp:"cpp",c:"c",cs:"csharp",go:"go",rs:"rust",rb:"ruby",php:"php",swift:"swift",kt:"kotlin",r:"r",lua:"lua",sh:"bash",bash:"bash",zsh:"bash",bat:"batch",ps1:"powershell",sql:"sql",dart:"dart",scala:"scala",perl:"perl",hs:"haskell",ex:"elixir",exs:"elixir",clj:"clojure",groovy:"groovy",m:"objectivec",mm:"objectivec",zig:"zig",nim:"nim",v:"v",sol:"solidity",vue:"markup",svelte:"markup",scss:"scss",sass:"sass",less:"less",styl:"stylus",coffee:"coffeescript",graphql:"graphql",gql:"graphql",proto:"protobuf",tf:"hcl",dockerfile:"docker",makefile:"makefile",cmake:"cmake",gradle:"groovy"};
+  const prismLang=langMap[ext]||"clike";
+  const esc=code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  return`<!DOCTYPE html><html><head>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css"/>
+<style>body{margin:0;padding:0;background:#1e1e2e}pre{margin:0;padding:16px;font-size:13px;line-height:1.6}code{font-family:'JetBrains Mono',Consolas,monospace}</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"><\/script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-${prismLang}.min.js"><\/script>
+</head><body><pre><code class="language-${prismLang}">${esc}</code></pre>
+<script>Prism.highlightAll();<\/script></body></html>`;
+}
+
 function FilePanel({file,onClose,onResize}){
   const iframeRef=useRef(null);const[w,setW]=useState(50);const[dragging,setDragging]=useState(false);const[viewMode,setViewMode]=useState("preview");
-  const isHtml=file.name.endsWith(".html")||file.name.endsWith(".htm")||file.name.endsWith(".pdf");
-  const isSvg=file.name.endsWith(".svg");
-  const canPreview=isHtml||isSvg;
+  const ext=file.name.split(".").pop().toLowerCase();
+  const canPreview=true; // everything can be previewed now
   useEffect(()=>{
-    if((isHtml||isSvg)&&viewMode==="preview"&&iframeRef.current){
-      const blob=new Blob([file.code],{type:"text/html"});
+    if(viewMode==="preview"&&iframeRef.current){
+      const html=buildPreview(file.name,file.code);
+      const blob=new Blob([html],{type:"text/html"});
       const url=URL.createObjectURL(blob);
       iframeRef.current.src=url;
       return()=>URL.revokeObjectURL(url);
     }
-  },[file,viewMode,isHtml,isSvg]);
+  },[file,viewMode]);
   useEffect(()=>{if(!dragging)return;
     document.body.style.userSelect="none";document.body.style.cursor="col-resize";
     const mm=e=>{e.preventDefault();const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;const nw=Math.max(25,Math.min(75,100-pct));setW(nw);if(onResize)onResize(nw);};
@@ -187,7 +235,7 @@ function FilePanel({file,onClose,onResize}){
     <div onMouseDown={()=>setDragging(true)} onTouchStart={()=>setDragging(true)} style={{position:"absolute",left:-4,top:0,width:8,height:"100%",cursor:"col-resize",zIndex:2}}><div style={{width:2,height:"100%",margin:"0 auto",background:dragging?"#00f0c0":"transparent",transition:"background .15s"}}/></div>
     <div className="fpanel-bar">
       <div style={{flex:1,display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-        <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",svg:"🎨",xml:"📰",yaml:"📄",sh:"🖥️",sql:"🗄️"})[file.name.split(".").pop()]||"📄"}</span>
+        <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",tsv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",tsx:"⚛️",svg:"🎨",xml:"📰",yaml:"📄",yml:"📄",toml:"📄",sh:"🖥️",bat:"🖥️",sql:"🗄️",cpp:"⚙️",c:"⚙️",cs:"🔷",go:"🔷",rs:"🦀",rb:"💎",php:"🐘",swift:"🍎",kt:"🟣",r:"📈",lua:"🌙",dart:"🎯",scala:"🔴",perl:"🐪",hs:"λ",ex:"💜",clj:"🔮",groovy:"🌟",vue:"💚",svelte:"🔥",scss:"🎨",sass:"🎨",less:"🎨",coffee:"☕",graphql:"◈",proto:"📡",dockerfile:"🐳",makefile:"🔨",gradle:"🐘",ini:"⚙️",env:"🔐",conf:"⚙️",cfg:"⚙️",ps1:"💙",zsh:"🖥️",bash:"🖥️",sol:"💎",zig:"⚡",nim:"👑"})[ext]||"📄"}</span>
         <span style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{file.name}</span>
         <span style={{fontSize:10,color:"#475569"}}>{file.code.length} chars</span>
       </div>
