@@ -1,32 +1,27 @@
 # SynthEx AI
 
-A beautiful AI chat interface powered by Claude.
+AI chat interface deployed on Cloudflare Pages.
 
-## Deploy to Netlify
+## Deploy to Cloudflare Pages
 
-1. Fork/clone this repo
-2. Go to [netlify.com](https://netlify.com) → Add new site → Import from Git
-3. Select this repository
-4. In Site configuration → Environment variables, add:
-   - `ANTHROPIC_API_KEY` = your Anthropic API key
-5. Deploy!
+1. Push this repo to GitHub
+2. Go to [dash.cloudflare.com](https://dash.cloudflare.com) → Workers & Pages → Create
+3. Connect your GitHub repo
+4. Build settings: Leave blank (static site + functions)
+5. Add environment variable: `ANTHROPIC_API_KEY` = your key
+6. Deploy!
+
+The `functions/api/chat.js` file automatically becomes the `/api/chat` endpoint.
 
 ## Features
 
-- Multi-model support (Opus 4.6, Sonnet 4.6, Sonnet 4.5, Haiku 4.5)
-- Streaming responses with stop button
-- File uploads (drag & drop, click, or paste images)
-- Web search integration
-- Extended thinking mode
+- Multi-model support (Core 4.6, Pulse 4.6, Pulse 4.5, Spark 4.5)
+- Google Sign-In authentication
+- Cloud sync via Firebase Firestore
+- Usage limits (25 messages per 3 hours per model)
+- Streaming responses
 - File generation with View/Download
-- Text-to-speech
-- Regenerate with version history
-- Search conversations
-- Edit/delete conversations
+- Image lightbox viewer
 - External link safety dialog
 - Mobile responsive
-- Dark theme with SynthEx branding
-
-## Local Development
-
-Just open `index.html` in a browser. Note: API calls require the Netlify function proxy.
+- Dark theme

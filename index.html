@@ -86,6 +86,10 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 .fpanel iframe,.fpanel pre{flex:1;border:none;width:100%;background:#0a0e17}
 @media(max-width:768px){.fpanel{width:100%;max-width:100%}}
 @media(max-width:768px){.sidebar{position:fixed!important;z-index:20!important;height:100%!important;box-shadow:8px 0 30px rgba(0,0,0,.5)}.sb-overlay{position:fixed;inset:0;z-index:19;background:rgba(0,0,0,.4)}}
+.lightbox{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.85);display:flex;align-items:center;justify-content:center;cursor:zoom-out;animation:fadeIn .15s}
+.lightbox img{max-width:90vw;max-height:90vh;object-fit:contain;border-radius:8px;cursor:zoom-in;transition:transform .2s}
+.lightbox .lb-close{position:absolute;top:16px;right:16px;width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.1);border:none;color:#fff;font-size:20px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.lightbox .lb-close:hover{background:rgba(255,255,255,.2)}
 </style>
 </head>
 <body>
@@ -221,6 +225,15 @@ function DeleteModal({name,onClose,onDelete}){
   </div></div>;
 }
 
+function ImageLightbox({src,onClose}){
+  const[zoomed,setZoomed]=useState(false);const[pos,setPos]=useState({x:50,y:50});
+  function handleClick(e){if(zoomed){setZoomed(false);}else{const rect=e.currentTarget.getBoundingClientRect();const x=((e.clientX-rect.left)/rect.width)*100;const y=((e.clientY-rect.top)/rect.height)*100;setPos({x,y});setZoomed(true);}}
+  return<div className="lightbox" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <button className="lb-close" onClick={onClose}>✕</button>
+    <img src={src} alt="" onClick={handleClick} style={{transform:zoomed?"scale(2.5)":"scale(1)",transformOrigin:pos.x+"% "+pos.y+"%",cursor:zoomed?"zoom-out":"zoom-in"}}/>
+  </div>;
+}
+
 const Ic={
   Copy:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>,
   Spk:()=><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/></svg>,
@@ -277,8 +290,6 @@ function Login({onLogin}){
       <div style={{background:"#111827",borderRadius:16,border:"1px solid #1e293b",padding:28,boxShadow:"0 20px 60px rgba(0,0,0,.4)",display:"flex",flexDirection:"column",alignItems:"center",gap:20}}>
         <div ref={gBtnRef} style={{minHeight:44,display:"flex",alignItems:"center",justifyContent:"center"}}>{!window.google&&<span style={{color:"#64748b",fontSize:13}}>Loading Google Sign-In...</span>}</div>
         {err&&<p style={{color:"#ef4444",fontSize:12}}>{err}</p>}
-        <div style={{display:"flex",alignItems:"center",gap:16,width:"100%"}}><div style={{flex:1,height:1,background:"#1e293b"}}/><span style={{color:"#475569",fontSize:11,fontWeight:600,textTransform:"uppercase",letterSpacing:1}}>or</span><div style={{flex:1,height:1,background:"#1e293b"}}/></div>
-        <button onClick={()=>onLogin({email:"guest",name:"Guest"})} style={{width:"100%",padding:10,background:"none",border:"1px solid #1e293b",borderRadius:10,color:"#94a3b8",fontSize:13,cursor:"pointer",fontFamily:"'Outfit'",transition:".2s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor="rgba(0,240,192,.3)";e.currentTarget.style.color="#e2e8f0";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#1e293b";e.currentTarget.style.color="#94a3b8";}}>Continue as guest</button>
       </div>
     </div>
   </div>;
@@ -286,7 +297,12 @@ function Login({onLogin}){
 
 function App({user,onLogout}){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
-  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);
+  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);
+  // Usage limits: 25 messages per 3 hours per model tier
+  const LIMITS={free:{msgs:25,window:3*60*60*1000}};
+  function getUsage(){try{return JSON.parse(localStorage.getItem("sx-usage")||"{}") }catch{return{};}}
+  function checkLimit(){const u=getUsage();const now=Date.now();const k=mdl.id;if(!u[k])return{ok:true,left:LIMITS.free.msgs};const recent=u[k].filter(t=>now-t<LIMITS.free.window);if(recent.length>=LIMITS.free.msgs){const oldest=Math.min(...recent);const reset=new Date(oldest+LIMITS.free.window);return{ok:false,left:0,reset};}return{ok:true,left:LIMITS.free.msgs-recent.length};}
+  function recordUsage(){const u=getUsage();const k=mdl.id;const now=Date.now();u[k]=(u[k]||[]).filter(t=>now-t<LIMITS.free.window);u[k].push(now);localStorage.setItem("sx-usage",JSON.stringify(u));}
   const endR=useRef(null);const abR=useRef(null);const sR=useRef(false);const fR=useRef(null);const mR=useRef(null);const taR=useRef(null);const svT=useRef(null);
 
   const msgs=cur&&chats[cur]?chats[cur].messages:[];
@@ -345,6 +361,8 @@ function App({user,onLogout}){
 
   async function doSend(ov){
     const text=(ov||input).trim();if((!text&&!files.length)||sR.current)return;
+    const lim=checkLimit();if(!lim.ok){const rTime=lim.reset.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});alert("You've reached your message limit for "+mdl.nm+". Resets at "+rTime+".\n\nTry switching to a different model.");return;}
+    recordUsage();
     sR.current=true;setStm(true);setInput("");const af=[...files];setFiles([]);
     if(taR.current)taR.current.style.height="auto";
     let cid=cur;if(!cid||!chats[cid])cid="c_"+Date.now();
@@ -383,6 +401,7 @@ function App({user,onLogout}){
     {renChat&&<RenameModal name={chats[renChat]?.title||""} onClose={()=>setRenChat(null)} onSave={n=>renameChat(renChat,n)}/>}
     {delChatId&&chats[delChatId]&&<DeleteModal name={chats[delChatId].title||"this chat"} onClose={()=>setDelChatId(null)} onDelete={()=>delChat(delChatId)}/>}
     {viewF&&<FilePanel file={viewF} onClose={()=>setViewF(null)}/>}
+    {lbSrc&&<ImageLightbox src={lbSrc} onClose={()=>setLbSrc(null)}/>}
 
     {/* Mobile sidebar overlay */}
     {IS_MOBILE&&sb&&<div className="sb-overlay" onClick={()=>setSb(false)}/>}
@@ -426,10 +445,11 @@ function App({user,onLogout}){
           return<div key={i} style={{display:"flex",gap:10,maxWidth:820,width:"100%",margin:"0 auto",flexDirection:ai?"row":"row-reverse",animation:"mi .3s ease"}}>
             {ai?<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0a0e17",alignSelf:"flex-start"}}>SX</div>:<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"#111827",border:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,color:"#94a3b8",alignSelf:"flex-start"}}>You</div>}
             <div style={{maxWidth:"calc(100% - 44px)",minWidth:0}}>
-              {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",cursor:"pointer"}} onClick={()=>{if(f.preview)window.open(f.preview,"_blank");}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:180,maxHeight:130,display:"block"}}/>:<div style={{padding:"6px 10px",background:"#111827",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
+              {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",cursor:"pointer"}} onClick={()=>{if(f.preview)setLbSrc(f.preview);}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:180,maxHeight:130,display:"block"}}/>:<div style={{padding:"6px 10px",background:"#111827",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
               <div className={ai?"mc":""} style={{padding:"12px 16px",borderRadius:12,lineHeight:1.7,fontSize:14,background:ai?"#111827":"linear-gradient(135deg,rgba(0,240,192,.06),rgba(0,240,192,.03))",border:ai?"1px solid #1e293b":"1px solid rgba(0,240,192,.15)",userSelect:"text",wordBreak:"break-word"}}>
                 {typ?<div style={{display:"flex",alignItems:"center",gap:5,height:24}}>{[0,1,2].map(j=><span key={j} style={{width:6,height:6,borderRadius:"50%",background:"#00f0c0",display:"block",animation:"dotB 1.4s ease-in-out infinite "+j*.16+"s"}}/>)}</div>:ai?<MsgHtml content={msg.content} onLink={openLink} onView={f=>setViewF(f)}/>:<span style={{whiteSpace:"pre-wrap"}}>{msg.content}</span>}
               </div>
+              {!ai&&msg.content&&<div style={{display:"flex",justifyContent:"flex-end",marginTop:3}}><button className="ab" onClick={()=>navigator.clipboard.writeText(msg.content)} title="Copy"><Ic.Copy/></button></div>}
               {ai&&msg.content!==""&&!typ&&<div style={{display:"flex",alignItems:"center",gap:2,marginTop:5,flexWrap:"wrap"}}>
                 {mi2&&<span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono'",marginRight:6}}><span style={{width:4,height:4,borderRadius:"50%",background:mi2.c}}/>{mi2.nm}</span>}
                 <button className="ab" onClick={()=>copyM(msg.content)} title="Copy"><Ic.Copy/></button>
@@ -449,7 +469,7 @@ function App({user,onLogout}){
             {MODES.map((m,i)=><button key={i} className={"mc2"+(mode?.label===m.label?" on":"")} onClick={()=>setMode(mode?.label===m.label?null:m)}><span style={{fontSize:12}}>{m.icon}</span>{m.label}</button>)}
             <button className={"mc2"+(et?" on":"")} onClick={()=>setEt(!et)} style={et?{borderColor:"rgba(167,139,250,.4)",color:"#a78bfa",background:"rgba(167,139,250,.06)"}:{}}><span style={{fontSize:12}}>🧠</span>Think</button>
           </div>
-          {files.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap",justifyContent:"center"}}>{files.map((f,i)=><div key={i} style={{position:"relative",borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",background:"#111827",cursor:"pointer"}} onClick={()=>{if(f.preview)window.open(f.preview,"_blank");}}>{f.preview?<img src={f.preview} alt="" style={{width:50,height:50,objectFit:"cover",display:"block"}}/>:<div style={{padding:"6px 20px 6px 8px",fontSize:10,color:"#94a3b8",display:"flex",alignItems:"center",gap:3}}><Ic.Fl/>{f.name.slice(0,16)}</div>}<button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter((_,j)=>j!==i));}} style={{position:"absolute",top:1,right:1,width:16,height:16,borderRadius:3,background:"rgba(0,0,0,.7)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#94a3b8"}}><Ic.X/></button></div>)}</div>}
+          {files.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap",justifyContent:"center"}}>{files.map((f,i)=><div key={i} style={{position:"relative",borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",background:"#111827",cursor:"pointer"}} onClick={()=>{if(f.preview)setLbSrc(f.preview);}}>{f.preview?<img src={f.preview} alt="" style={{width:50,height:50,objectFit:"cover",display:"block"}}/>:<div style={{padding:"6px 20px 6px 8px",fontSize:10,color:"#94a3b8",display:"flex",alignItems:"center",gap:3}}><Ic.Fl/>{f.name.slice(0,16)}</div>}<button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter((_,j)=>j!==i));}} style={{position:"absolute",top:1,right:1,width:16,height:16,borderRadius:3,background:"rgba(0,0,0,.7)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#94a3b8"}}><Ic.X/></button></div>)}</div>}
           <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
             <div ref={mR} style={{position:"relative",flexShrink:0,height:BTN,display:"flex",alignItems:"center"}}>
               <button onClick={()=>setPm(!pm)} style={{width:BTN,height:BTN,borderRadius:12,background:"#111827",border:"1px solid #1e293b",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:pm?"#00f0c0":"#64748b",transition:".15s",transform:pm?"rotate(45deg)":"none"}}><Ic.Pls/></button>
@@ -463,7 +483,7 @@ function App({user,onLogout}){
               </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#334155"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}{!ws&&!et?"Shift+Enter for new line":""}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{fontFamily:"'JetBrains Mono'",color:mdl.c}}>{mdl.nm}</span></span></div>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#334155"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}{!ws&&!et?(() =>{const l=checkLimit();return l.ok?l.left+"/25 messages left":"Limit reached";})():""}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{fontFamily:"'JetBrains Mono'",color:mdl.c}}>{mdl.nm}</span></span></div>
         </div>
       </div>
     </main>
