@@ -102,6 +102,8 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 </head>
 <body>
 <div id="root"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.9/babel.min.js"></script>
@@ -129,9 +131,11 @@ import random
 ...
 \`\`\`
 
-Supported file types: .py, .js, .ts, .java, .cpp, .c, .go, .rs, .html, .css, .json, .xml, .yaml, .toml, .md, .txt, .csv, .sql, .sh, .bat, .rb, .php, .swift, .kt, .r, .lua, .jsx, .tsx, .vue, .svelte, .svg, and more.
+Supported file types: .py, .js, .ts, .java, .cpp, .c, .go, .rs, .html, .css, .json, .xml, .yaml, .toml, .md, .txt, .csv, .sql, .sh, .bat, .rb, .php, .swift, .kt, .r, .lua, .jsx, .tsx, .vue, .svelte, .svg, .xlsx, and more.
 
-For PDFs: generate as HTML with \`// filename: document.pdf\` — the viewer renders it as a styled document, and Save PDF opens the browser's print-to-PDF.
+For spreadsheets (.xlsx): Generate HTML with <table> elements using // filename: data.xlsx — the system converts HTML tables to real Excel files automatically.
+
+For PDFs (.pdf): Generate styled HTML with // filename: document.pdf — the system converts it to a real PDF file automatically.
 
 Always use the correct file extension for the language requested. Never default to HTML when another format is asked for. Keep files complete.`;
 
@@ -152,12 +156,33 @@ h=h.replace(/(?<!["=])(https?:\/\/[^\s<)]+)/g,'<a href="$1" data-ext="1">$1</a>'
 h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/gm,"<p>$1</p>");return h;}
 
 function dlFile(n,c){
-  if(n.endsWith(".pdf")){
-    // PDF: render HTML in iframe and trigger print-to-PDF
-    const w2=window.open("","_blank");if(w2){w2.document.write(c);w2.document.close();setTimeout(()=>{w2.document.title=n;w2.print();},500);}return;
+  const ext=n.split(".").pop().toLowerCase();
+  if(ext==="pdf"){
+    // Real PDF download via html2pdf.js
+    const container=document.createElement("div");container.innerHTML=c;container.style.cssText="position:fixed;left:-9999px;width:800px;";document.body.appendChild(container);
+    html2pdf().set({margin:10,filename:n,image:{type:"jpeg",quality:.95},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:"mm",format:"a4",orientation:"portrait"}}).from(container).save().then(()=>document.body.removeChild(container)).catch(()=>document.body.removeChild(container));
+    return;
   }
-  const mimes={".html":"text/html",".htm":"text/html",".css":"text/css",".js":"text/javascript",".ts":"text/typescript",".json":"application/json",".xml":"application/xml",".svg":"image/svg+xml",".csv":"text/csv",".md":"text/markdown",".py":"text/x-python",".java":"text/x-java",".cpp":"text/x-c++src",".c":"text/x-csrc",".go":"text/x-go",".rs":"text/x-rust",".rb":"text/x-ruby",".php":"text/x-php",".sh":"text/x-sh",".bat":"text/x-bat",".sql":"text/x-sql",".yaml":"text/yaml",".yml":"text/yaml",".toml":"text/toml",".lua":"text/x-lua",".swift":"text/x-swift",".kt":"text/x-kotlin",".r":"text/x-r",".jsx":"text/jsx",".tsx":"text/tsx",".vue":"text/x-vue",".svelte":"text/x-svelte"};
-  const ext="."+n.split(".").pop().toLowerCase();const mime=mimes[ext]||"text/plain";
+  if(ext==="xlsx"||ext==="xls"){
+    // Parse HTML table or CSV data to real Excel file
+    try{
+      const tmp=document.createElement("div");tmp.innerHTML=c;
+      const tables=tmp.querySelectorAll("table");
+      if(tables.length>0){
+        const wb=XLSX.utils.book_new();
+        tables.forEach((tbl,i)=>{const ws=XLSX.utils.table_to_sheet(tbl);XLSX.utils.book_append_sheet(wb,ws,i===0?"Sheet1":"Sheet"+(i+1));});
+        XLSX.writeFile(wb,n);
+      }else{
+        // Try parse as CSV-like content
+        const ws=XLSX.utils.aoa_to_sheet(c.trim().split("\n").map(r=>r.split(",")));
+        const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Sheet1");
+        XLSX.writeFile(wb,n);
+      }
+    }catch(e){console.error(e);const b=new Blob([c],{type:"text/plain"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);}
+    return;
+  }
+  const mimes={html:"text/html",htm:"text/html",css:"text/css",js:"text/javascript",ts:"text/typescript",json:"application/json",xml:"application/xml",svg:"image/svg+xml",csv:"text/csv",md:"text/markdown",py:"text/x-python",java:"text/x-java",cpp:"text/x-c++src",c:"text/x-csrc",go:"text/x-go",rs:"text/x-rust",rb:"text/x-ruby",php:"text/x-php",sh:"text/x-sh",bat:"text/x-bat",sql:"text/x-sql",yaml:"text/yaml",yml:"text/yaml",toml:"text/toml",lua:"text/x-lua",swift:"text/x-swift",kt:"text/x-kotlin",r:"text/x-r",jsx:"text/jsx",tsx:"text/tsx"};
+  const mime=mimes[ext]||"text/plain";
   const b=new Blob([c],{type:mime});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n;a.click();URL.revokeObjectURL(u);
 }
 
@@ -235,13 +260,13 @@ function FilePanel({file,onClose,onResize}){
     <div onMouseDown={()=>setDragging(true)} onTouchStart={()=>setDragging(true)} style={{position:"absolute",left:-4,top:0,width:8,height:"100%",cursor:"col-resize",zIndex:2}}><div style={{width:2,height:"100%",margin:"0 auto",background:dragging?"#00f0c0":"transparent",transition:"background .15s"}}/></div>
     <div className="fpanel-bar">
       <div style={{flex:1,display:"flex",alignItems:"center",gap:8,minWidth:0}}>
-        <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",tsv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",tsx:"⚛️",svg:"🎨",xml:"📰",yaml:"📄",yml:"📄",toml:"📄",sh:"🖥️",bat:"🖥️",sql:"🗄️",cpp:"⚙️",c:"⚙️",cs:"🔷",go:"🔷",rs:"🦀",rb:"💎",php:"🐘",swift:"🍎",kt:"🟣",r:"📈",lua:"🌙",dart:"🎯",scala:"🔴",perl:"🐪",hs:"λ",ex:"💜",clj:"🔮",groovy:"🌟",vue:"💚",svelte:"🔥",scss:"🎨",sass:"🎨",less:"🎨",coffee:"☕",graphql:"◈",proto:"📡",dockerfile:"🐳",makefile:"🔨",gradle:"🐘",ini:"⚙️",env:"🔐",conf:"⚙️",cfg:"⚙️",ps1:"💙",zsh:"🖥️",bash:"🖥️",sol:"💎",zig:"⚡",nim:"👑"})[ext]||"📄"}</span>
+        <span style={{fontSize:15}}>{({py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",tsv:"📊",xlsx:"📊",xls:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",tsx:"⚛️",svg:"🎨",xml:"📰",yaml:"📄",yml:"📄",toml:"📄",sh:"🖥️",bat:"🖥️",sql:"🗄️",cpp:"⚙️",c:"⚙️",cs:"🔷",go:"🔷",rs:"🦀",rb:"💎",xlsx:"📊",xls:"📊",php:"🐘",swift:"🍎",kt:"🟣",r:"📈",lua:"🌙",dart:"🎯",scala:"🔴",perl:"🐪",hs:"λ",ex:"💜",clj:"🔮",groovy:"🌟",vue:"💚",svelte:"🔥",scss:"🎨",sass:"🎨",less:"🎨",coffee:"☕",graphql:"◈",proto:"📡",dockerfile:"🐳",makefile:"🔨",gradle:"🐘",ini:"⚙️",env:"🔐",conf:"⚙️",cfg:"⚙️",ps1:"💙",zsh:"🖥️",bash:"🖥️",sol:"💎",zig:"⚡",nim:"👑"})[ext]||"📄"}</span>
         <span style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{file.name}</span>
         <span style={{fontSize:10,color:"#475569"}}>{file.code.length} chars</span>
       </div>
       {canPreview&&<div style={{display:"flex",border:"1px solid #1e293b",borderRadius:6,overflow:"hidden"}}><button onClick={()=>setViewMode("preview")} style={{padding:"3px 8px",fontSize:10,fontWeight:600,background:viewMode==="preview"?"rgba(0,240,192,.1)":"transparent",color:viewMode==="preview"?"#00f0c0":"#64748b",border:"none",cursor:"pointer",fontFamily:"'Outfit'"}}>Preview</button><button onClick={()=>setViewMode("source")} style={{padding:"3px 8px",fontSize:10,fontWeight:600,background:viewMode==="source"?"rgba(0,240,192,.1)":"transparent",color:viewMode==="source"?"#00f0c0":"#64748b",border:"none",cursor:"pointer",fontFamily:"'Outfit'"}}>Source</button></div>}
       <button className="dlb" onClick={copyCode} style={{fontSize:11,padding:"4px 10px"}}>Copy</button>
-      <button className="dlb" onClick={()=>dlFile(file.name,file.code)} style={{fontSize:11,padding:"4px 10px"}}>{file.name.endsWith(".pdf")?"Save PDF":"Download"}</button>
+      <button className="dlb" onClick={()=>dlFile(file.name,file.code)} style={{fontSize:11,padding:"4px 10px"}}>{ext==="pdf"?"Save PDF":ext==="xlsx"||ext==="xls"?"Save Excel":"Download"}</button>
       <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>✕</button>
     </div>
     {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}}/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
@@ -252,10 +277,11 @@ function MsgHtml({content,onLink,onView}){
   const ref=useRef(null);
   useEffect(()=>{if(!ref.current)return;
     ref.current.querySelectorAll("pre").forEach(pre=>{if(pre.querySelector(".cpb"))return;const b=document.createElement("button");b.className="cpb";b.textContent="Copy";b.onclick=()=>{navigator.clipboard.writeText(pre.querySelector("code")?.textContent||pre.textContent);b.textContent="Copied!";setTimeout(()=>b.textContent="Copy",1500);};pre.style.position="relative";pre.appendChild(b);});
-    ref.current.querySelectorAll(".fb").forEach(div=>{if(div.childNodes.length>0)return;const nm=div.dataset.n,lang=div.dataset.l,code=decodeURIComponent(escape(atob(div.dataset.c)));const ext=nm.split(".").pop();const ic={py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",sql:"🗄️",cpp:"⚙️",go:"🔷",rs:"🦀",rb:"💎",php:"🐘",sh:"🖥️",bat:"🖥️",swift:"🍎",kt:"🟣",r:"📈",lua:"🌙",c:"⚙️",yaml:"📄",yml:"📄",toml:"📄",xml:"📰",vue:"💚",svelte:"🔥",tsx:"⚛️"};
+    ref.current.querySelectorAll(".fb").forEach(div=>{if(div.childNodes.length>0)return;const nm=div.dataset.n,lang=div.dataset.l,code=decodeURIComponent(escape(atob(div.dataset.c)));const ext=nm.split(".").pop();const ic={py:"🐍",js:"📜",html:"🌐",css:"🎨",json:"📋",md:"📝",txt:"📄",csv:"📊",pdf:"📕",java:"☕",ts:"📘",jsx:"⚛️",sql:"🗄️",cpp:"⚙️",go:"🔷",rs:"🦀",rb:"💎",xlsx:"📊",xls:"📊",php:"🐘",sh:"🖥️",bat:"🖥️",swift:"🍎",kt:"🟣",r:"📈",lua:"🌙",c:"⚙️",yaml:"📄",yml:"📄",toml:"📄",xml:"📰",vue:"💚",svelte:"🔥",tsx:"⚛️"};
       const card=document.createElement("div");card.className="dlc";
-      const desc=nm.endsWith(".pdf")?"PDF document":lang+" · "+code.length+" chars";
-      card.innerHTML='<div class="dli">'+(ic[ext]||"📄")+'</div><div class="dlf"><div class="dln">'+nm+'</div><div class="dls">'+desc+'</div></div><div style="display:flex;gap:6px"><button class="dlb vb">View</button><button class="dlb db">'+(nm.endsWith(".pdf")?"Save PDF":"Download")+'</button></div>';
+      const desc=ext==="pdf"?"PDF document":ext==="xlsx"||ext==="xls"?"Excel spreadsheet":lang+" · "+code.length+" chars";
+      const dlBtn=ext==="pdf"?"Save PDF":ext==="xlsx"||ext==="xls"?"Save Excel":"Download";
+      card.innerHTML='<div class="dli">'+(ic[ext]||"📄")+'</div><div class="dlf"><div class="dln">'+nm+'</div><div class="dls">'+desc+'</div></div><div style="display:flex;gap:6px"><button class="dlb vb">View</button><button class="dlb db">'+dlBtn+'</button></div>';
       card.querySelector(".db").onclick=()=>dlFile(nm,code);card.querySelector(".vb").onclick=()=>onView({name:nm,code});div.appendChild(card);});
     ref.current.querySelectorAll("a[data-ext]").forEach(a=>{a.onclick=(e)=>{e.preventDefault();onLink(a.href);};});
   },[content]);
