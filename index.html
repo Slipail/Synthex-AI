@@ -46,7 +46,11 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 .mc h1{font-size:18px;font-weight:700;margin:12px 0 6px}.mc h2{font-size:16px;font-weight:700;margin:12px 0 6px}.mc h3{font-size:14px;font-weight:700;margin:10px 0 4px}
 .mc p{margin-bottom:8px;line-height:1.7}.mc p:last-child{margin-bottom:0}.mc strong{color:#00f0c0;font-weight:600}.mc em{color:#94a3b8}
 .mc a{color:#00f0c0;text-decoration:underline;cursor:pointer}.mc a:hover{color:#34d399}
-.mc pre{background:#0a0e17;border:1px solid #1e293b;border-radius:8px;padding:14px;margin:10px 0;overflow-x:auto;position:relative;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.mc pre{background:#0a0e17;border:1px solid #1e293b;border-radius:8px;padding:14px;margin:10px 0;overflow-x:auto;overflow-y:auto;max-height:300px;position:relative;font-family:'JetBrains Mono',monospace;font-size:12.5px}
+.gen-status{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px;color:#94a3b8}
+.gen-spinner{width:14px;height:14px;border-radius:50%;border:2px solid #00f0c0;border-top-color:transparent;animation:spin .8s linear infinite;flex-shrink:0}
+.gen-done{color:#00f0c0;font-size:14px;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
 .mc code{font-family:'JetBrains Mono',monospace;font-size:12.5px}.mc .ic{background:#1e293b;padding:2px 6px;border-radius:4px;font-size:12px;color:#00f0c0}
 .mc ul,.mc ol{margin:8px 0;padding-left:24px;list-style-position:inside}.mc ul{list-style-type:disc}.mc ol{list-style-type:decimal}.mc li{margin-bottom:4px;line-height:1.6;padding-left:4px}
 .mc blockquote{border-left:3px solid rgba(0,240,192,.25);padding-left:12px;color:#94a3b8;margin:8px 0}
@@ -119,15 +123,18 @@ const SYS=`You are an AI assistant called SynthEx, made by Slipail. Your models 
 
 Be concise. Give short, direct answers. Don't over-explain or add unnecessary context. Match the length and effort to the question — simple questions get short answers.
 
-When generating files, use this exact format:
-\`\`\`language
-// filename: name.ext
-content here
+When generating files, ALWAYS use a code block with the filename comment on the FIRST line inside the code block:
+\`\`\`html
+// filename: example.html
+<html>...</html>
 \`\`\`
-For PDF files, generate the content as HTML with // filename: document.pdf — the system will convert it to a real PDF automatically. Always generate files immediately.`;
+
+For PDF requests, generate the content as an HTML file with // filename: document.pdf and include full styled HTML content. The system converts it to PDF automatically. Keep generated files focused and complete — never leave them unfinished.`;
 
 function parseMd(t){let h=t||"";
-h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
+h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="gen-status"><span class="gen-done">✓</span> Generated file</div><div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
+// Detect in-progress file generation (unclosed code block with filename)
+h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*)$/g,(match,lang,name,code)=>{return'<div class="gen-status"><span class="gen-spinner"></span> Generating '+name.trim()+'...</div><pre data-lang="'+lang+'" style="max-height:200px;overflow-y:auto"><code>'+code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</code></pre>';});
 h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>'<pre data-lang="'+l+'"><code>'+c.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</code></pre>');
 h=h.replace(/`([^`]+)`/g,'<code class="ic">$1</code>');h=h.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");h=h.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,"<em>$1</em>");
 h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");
@@ -314,7 +321,7 @@ function Cm({children,ai}){
 
 function App({user,onLogout}){
   const[chats,setChats]=useState({});const[cur,setCur]=useState(null);const[mdl,setMdl]=useState(MODELS[1]);const[input,setInput]=useState("");const[stm,setStm]=useState(false);const[sb,setSb]=useState(!IS_MOBILE);const[files,setFiles]=useState([]);const[spk,setSpk]=useState(null);const[dg,setDg]=useState(false);const[pm,setPm]=useState(false);const[ws,setWs]=useState(true);const[et,setEt]=useState(false);const[mode,setMode]=useState(null);
-  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);
+  const[linkUrl,setLinkUrl]=useState(null);const[renChat,setRenChat]=useState(null);const[search,setSearch]=useState("");const[delChatId,setDelChatId]=useState(null);const[viewF,setViewF]=useState(null);const[lbSrc,setLbSrc]=useState(null);const[limitMsg,setLimitMsg]=useState(null);
   // Usage limits: per model tier, 6 hour window
   const LIMITS={
     "claude-opus-4-6":{msgs:25,window:6*60*60*1000},
@@ -393,7 +400,7 @@ function App({user,onLogout}){
 
   async function doSend(ov){
     const text=(ov||input).trim();if((!text&&!files.length)||sR.current)return;
-    const lim=checkLimit();if(!lim.ok){const rTime=lim.reset.toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"});alert("You've reached your message limit for "+mdl.nm+". Resets at "+rTime+".\n\nTry switching to a different model.");return;}
+    const lim=checkLimit();if(!lim.ok){const ms=lim.reset-Date.now();const hrs=Math.floor(ms/3600000);const mins=Math.ceil((ms%3600000)/60000);const tStr=hrs>0?hrs+"h "+mins+"min":mins+"min";setLimitMsg("You've reached your limit for "+mdl.nm+". Resets in "+tStr+".");return;}
     recordUsage();
     sR.current=true;setStm(true);setInput("");const af=[...files];setFiles([]);
     if(taR.current)taR.current.style.height="auto";
@@ -434,6 +441,7 @@ function App({user,onLogout}){
     {delChatId&&chats[delChatId]&&<DeleteModal name={chats[delChatId].title||"this chat"} onClose={()=>setDelChatId(null)} onDelete={()=>delChat(delChatId)}/>}
     {viewF&&<FilePanel file={viewF} onClose={()=>setViewF(null)}/>}
     {lbSrc&&<ImageLightbox src={lbSrc} onClose={()=>setLbSrc(null)}/>}
+    {limitMsg&&<div className="overlay" onClick={()=>setLimitMsg(null)}><div className="modal" onClick={e=>e.stopPropagation()} style={{textAlign:"center"}}><div style={{fontSize:36,marginBottom:12}}>⏳</div><h3>Message Limit Reached</h3><p>{limitMsg}</p><p style={{fontSize:12,color:"#64748b"}}>Try switching to a different model.</p><div style={{display:"flex",justifyContent:"center",gap:8,marginTop:4}}>{MODELS.filter(m=>!m.locked&&m.id!==mdl.id).map(m=><button key={m.id} className="mbtn" onClick={()=>{setMdl(m);setLimitMsg(null);}} style={{background:m.c+"20",color:m.c,border:"1px solid "+m.c+"40",padding:"6px 14px",fontSize:12}}>{m.nm}</button>)}</div><button className="mbtn mbtn-cancel" onClick={()=>setLimitMsg(null)} style={{marginTop:14,width:"100%"}}>OK</button></div></div>}
 
     {/* Mobile sidebar overlay */}
     {IS_MOBILE&&sb&&<div className="sb-overlay" onClick={()=>setSb(false)}/>}
@@ -478,9 +486,9 @@ function App({user,onLogout}){
             {ai?<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0a0e17",alignSelf:"flex-start"}}>SX</div>:<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"#111827",border:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,color:"#94a3b8",alignSelf:"flex-start"}}>You</div>}
             <div style={{maxWidth:"calc(100% - 44px)",minWidth:0}}>
               {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",cursor:"pointer"}} onClick={()=>{if(f.preview)setLbSrc(f.preview);}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:180,maxHeight:130,display:"block"}}/>:<div style={{padding:"6px 10px",background:"#111827",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
-              <Cm ai={ai}>
+              <div className={ai?"mc":""} style={{padding:"12px 16px",borderRadius:12,lineHeight:1.7,fontSize:14,background:ai?"#111827":"linear-gradient(135deg,rgba(0,240,192,.06),rgba(0,240,192,.03))",border:ai?"1px solid #1e293b":"1px solid rgba(0,240,192,.15)",userSelect:"text",wordBreak:"break-word"}}>
                 {typ?<div style={{display:"flex",alignItems:"center",gap:5,height:24}}>{[0,1,2].map(j=><span key={j} style={{width:6,height:6,borderRadius:"50%",background:"#00f0c0",display:"block",animation:"dotB 1.4s ease-in-out infinite "+j*.16+"s"}}/>)}</div>:ai?<MsgHtml content={msg.content} onLink={openLink} onView={f=>setViewF(f)}/>:<span style={{whiteSpace:"pre-wrap"}}>{msg.content}</span>}
-              </Cm>
+              </div>
               {!ai&&msg.content&&<div style={{display:"flex",justifyContent:"flex-end",alignItems:"center",marginTop:3,gap:4}}>{msg.ts&&<span style={{fontSize:9,color:"#334155",fontFamily:"'JetBrains Mono'"}}>{new Date(msg.ts).toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}</span>}<button className="ab" onClick={()=>navigator.clipboard.writeText(msg.content)} title="Copy"><Ic.Copy/></button></div>}
               {ai&&msg.content!==""&&!typ&&<div style={{display:"flex",alignItems:"center",gap:2,marginTop:5,flexWrap:"wrap"}}>
                 {mi2&&<span style={{display:"inline-flex",alignItems:"center",gap:3,fontSize:10,color:"#475569",fontFamily:"'JetBrains Mono'",marginRight:6}}><span style={{width:4,height:4,borderRadius:"50%",background:mi2.c}}/>{mi2.nm}</span>}
@@ -516,7 +524,7 @@ function App({user,onLogout}){
               </div>
             </div>
           </div>
-          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#475569"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}</span><span style={{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono'"}}>{(()=>{const l=checkLimit();if(!l.ok){const mins=Math.ceil((l.reset-Date.now())/60000);return<span style={{color:"#ef4444"}}>⏳ Resets in {mins}min</span>;}const pct=l.left/l.max;const col=pct>0.5?"#00f0c0":pct>0.2?"#f59e0b":"#ef4444";return<span style={{color:col}}>{l.left}/{l.max}</span>;})()}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{color:mdl.c}}>{mdl.nm}</span></span></div>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:5,padding:"0 4px"}}><span style={{fontSize:10,color:"#475569"}}>{ws?"🌐 Web":""}{ws&&et?" · ":""}{et?"🧠 Think":""}</span><span style={{fontSize:10,fontWeight:600,fontFamily:"'JetBrains Mono'"}}>{(()=>{const l=checkLimit();if(!l.ok){const ms=l.reset-Date.now();const hrs=Math.floor(ms/3600000);const mins=Math.ceil((ms%3600000)/60000);const tStr=hrs>0?hrs+"h "+mins+"m":mins+"m";return<span style={{color:"#ef4444"}}>⏳ {tStr}</span>;}const pct=l.left/l.max;const col=pct>0.5?"#00f0c0":pct>0.2?"#f59e0b":"#ef4444";return<span style={{color:col}}>{l.left}/{l.max}</span>;})()}</span><span style={{fontSize:10,color:"#475569"}}>SynthEx <span style={{color:mdl.c}}>{mdl.nm}</span></span></div>
         </div>
       </div>
     </main>
