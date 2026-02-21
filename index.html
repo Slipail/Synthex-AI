@@ -7,6 +7,27 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='url(%23g)'/><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%2300f0c0'/><stop offset='1' stop-color='%23a78bfa'/></linearGradient></defs><text x='50' y='68' text-anchor='middle' font-family='monospace' font-weight='bold' font-size='40' fill='%230a0e17'>SX</text></svg>">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script>
+// Firebase config - you'll need to create a Firebase project and paste config here
+// Go to console.firebase.google.com -> Create project -> Firestore Database -> Create
+// Then Project settings -> Add web app -> Copy config
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDb6o7oaNZhofoto_3FRKv-R1hjetzANw-B",
+  authDomain: "synthex-ai.firebaseapp.com",
+  projectId: "synthex-ai",
+  storageBucket: "synthex-ai.firebasestorage.app",
+  messagingSenderId: "540857759802",
+  appId: "1:540857759802:web:588ee46371eda1b553f103",
+  measurementId: "G-MY7QELGoYF"
+};
+let db = null;
+if (FIREBASE_CONFIG.apiKey) {
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db = firebase.firestore();
+}
+</script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}html,body,#root{height:100dvh;height:100vh;overflow:hidden}
 body{background:#0a0e17;color:#e2e8f0;font-family:'Outfit','Segoe UI',sans-serif;-webkit-text-size-adjust:100%}
@@ -27,7 +48,7 @@ textarea::-webkit-scrollbar{width:4px}textarea::-webkit-scrollbar-thumb{backgrou
 .mc a{color:#00f0c0;text-decoration:underline;cursor:pointer}.mc a:hover{color:#34d399}
 .mc pre{background:#0a0e17;border:1px solid #1e293b;border-radius:8px;padding:14px;margin:10px 0;overflow-x:auto;position:relative;font-family:'JetBrains Mono',monospace;font-size:12.5px}
 .mc code{font-family:'JetBrains Mono',monospace;font-size:12.5px}.mc .ic{background:#1e293b;padding:2px 6px;border-radius:4px;font-size:12px;color:#00f0c0}
-.mc ul,.mc ol{margin:8px 0;padding-left:20px}.mc li{margin-bottom:4px;line-height:1.6}
+.mc ul,.mc ol{margin:8px 0;padding-left:24px;list-style-position:inside}.mc ul{list-style-type:disc}.mc ol{list-style-type:decimal}.mc li{margin-bottom:4px;line-height:1.6;padding-left:4px}
 .mc blockquote{border-left:3px solid rgba(0,240,192,.25);padding-left:12px;color:#94a3b8;margin:8px 0}
 .cpb{position:absolute;top:8px;right:8px;background:#1e293b;border:1px solid #334155;border-radius:6px;color:#64748b;cursor:pointer;padding:3px 8px;font-size:11px;font-family:'JetBrains Mono',monospace;transition:.15s}.cpb:hover{color:#00f0c0}
 .itx:focus{border-color:rgba(0,240,192,.25)!important;box-shadow:0 0 0 3px rgba(0,240,192,.06),0 0 20px rgba(0,240,192,.12)}
@@ -85,22 +106,25 @@ const MODELS=[
 ];
 const MODES=[{icon:"</>",label:"Code",prompt:"Focus on writing clean, efficient code with explanations."},{icon:"✏️",label:"Write",prompt:"Focus on creative and professional writing."},{icon:"📚",label:"Learn",prompt:"Explain concepts clearly with examples."}];
 const SUGS=[{icon:"⚡",text:"Write a Python web scraper",p:"Write a Python script that scrapes a website and exports data to CSV"},{icon:"📘",text:"Explain async/await in JS",p:"Explain how async/await works in JavaScript with examples"},{icon:"🔧",text:"Help me debug my code",p:"Debug this code and explain what's wrong with it"},{icon:"🏗️",text:"Design a REST API",p:"Design a REST API for a task management app with authentication"}];
-const SYS=`Your name is SynthEx. You were made by SynthEx Labs. The models available are Core 4.6, Pulse 4.6, Pulse 4.5, and Spark 4.5. If asked what model you are, respond with the appropriate SynthEx model name. Never say Claude or Anthropic.
+const SYS=`You are an AI assistant called SynthEx, made by Slipail. The models you run on are called Core 4.6, Pulse 4.6, Pulse 4.5, and Spark 4.5 instead of their original names. If asked about your creator or model name, use the SynthEx names. Otherwise just respond naturally and helpfully exactly as you normally would. Never mention Claude or Anthropic by name.
 
-When the user asks you to create, generate, or make a file, you MUST output it as a code block with a filename comment on the very first line. This is required for the UI to render the download button. Example:
-\`\`\`html
-// filename: page.html
-<!DOCTYPE html>
-<html>...</html>
+When generating files, always use this exact format so the UI renders a download button:
+\`\`\`language
+// filename: name.ext
+content here
 \`\`\`
-Always include the // filename: line. Always generate the file immediately.`;
+Always generate files immediately without asking clarifying questions first.`;
 
 function parseMd(t){let h=t||"";
 h=h.replace(/```(\w*)\n\/\/\s*filename:\s*(.+)\n([\s\S]*?)```/g,(match,lang,name,code)=>{const safe=btoa(unescape(encodeURIComponent(code.trim())));return'<div class="fb" data-n="'+name.trim()+'" data-l="'+lang+'" data-c="'+safe+'"></div>';});
 h=h.replace(/```(\w*)\n([\s\S]*?)```/g,(_,l,c)=>'<pre data-lang="'+l+'"><code>'+c.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")+'</code></pre>');
 h=h.replace(/`([^`]+)`/g,'<code class="ic">$1</code>');h=h.replace(/\*\*(.+?)\*\*/g,"<strong>$1</strong>");h=h.replace(/(?<!\*)\*([^*]+)\*(?!\*)/g,"<em>$1</em>");
 h=h.replace(/^### (.+)$/gm,"<h3>$1</h3>");h=h.replace(/^## (.+)$/gm,"<h2>$1</h2>");h=h.replace(/^# (.+)$/gm,"<h1>$1</h1>");
-h=h.replace(/^> (.+)$/gm,"<blockquote>$1</blockquote>");h=h.replace(/^- (.+)$/gm,"<li>$1</li>");h=h.replace(/^\d+\. (.+)$/gm,"<li>$1</li>");
+h=h.replace(/^> (.+)$/gm,"<blockquote>$1</blockquote>");
+// Wrap consecutive bullet lines in <ul>
+h=h.replace(/(?:^- .+$\n?)+/gm,(block)=>{const items=block.trim().split("\n").map(l=>"<li>"+l.replace(/^- /,"")+"</li>").join("");return"<ul>"+items+"</ul>";});
+// Wrap consecutive numbered lines in <ol>
+h=h.replace(/(?:^\d+\. .+$\n?)+/gm,(block)=>{const items=block.trim().split("\n").map(l=>"<li>"+l.replace(/^\d+\. /,"")+"</li>").join("");return"<ol>"+items+"</ol>";});
 h=h.replace(/\[([^\]]+)\]\(([^)]+)\)/g,'<a href="$2" data-ext="1">$1</a>');
 h=h.replace(/(?<!["=])(https?:\/\/[^\s<)]+)/g,'<a href="$1" data-ext="1">$1</a>');
 h=h.replace(/^(?!<[hpuolbq]|<li|<pre|<code|<strong|<em|<a|<block|<div)(.*\S.*)$/gm,"<p>$1</p>");return h;}
@@ -114,9 +138,10 @@ function FilePanel({file,onClose}){
   const canPreview=isHtml||isSvg;
   useEffect(()=>{
     if((isHtml||isSvg)&&viewMode==="preview"&&iframeRef.current){
-      const iframe=iframeRef.current;
-      // Use srcdoc approach for reliable rendering
-      iframe.srcdoc=file.code;
+      const blob=new Blob([file.code],{type:"text/html"});
+      const url=URL.createObjectURL(blob);
+      iframeRef.current.src=url;
+      return()=>URL.revokeObjectURL(url);
     }
   },[file,viewMode,isHtml,isSvg]);
   useEffect(()=>{if(!dragging)return;const mm=e=>{const pct=(e.clientX||e.touches?.[0]?.clientX||0)/window.innerWidth*100;setW(Math.max(25,Math.min(80,100-pct)));};const mu=()=>setDragging(false);document.addEventListener("mousemove",mm);document.addEventListener("mouseup",mu);document.addEventListener("touchmove",mm);document.addEventListener("touchend",mu);return()=>{document.removeEventListener("mousemove",mm);document.removeEventListener("mouseup",mu);document.removeEventListener("touchmove",mm);document.removeEventListener("touchend",mu);};},[dragging]);
@@ -136,7 +161,7 @@ function FilePanel({file,onClose}){
       <button className="dlb" onClick={()=>dlFile(file.name,file.code)} style={{fontSize:11,padding:"4px 10px"}}>{file.name.endsWith(".pdf")?"Save PDF":"Download"}</button>
       <button onClick={onClose} style={{background:"none",border:"none",color:"#94a3b8",cursor:"pointer",padding:4,fontSize:18,lineHeight:1}}>✕</button>
     </div>
-    {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}} sandbox="allow-scripts allow-same-origin"/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
+    {showPreview?<iframe ref={iframeRef} style={{flex:1,background:"#fff",border:"none",width:"100%"}}/>:<pre style={{flex:1,margin:0,padding:16,overflowY:"auto",overflowX:"auto",color:"#d4d4d4",fontFamily:"'JetBrains Mono',monospace",fontSize:13,lineHeight:1.6,whiteSpace:"pre",background:"#0a0e17"}}>{file.code}</pre>}
   </div></>;
 }
 
@@ -152,7 +177,16 @@ function MsgHtml({content,onLink,onView}){
   return <div ref={ref} dangerouslySetInnerHTML={{__html:parseMd(content)}}/>;
 }
 
-function speakT(t,cb){speechSynthesis.cancel();const c=t.replace(/```[\s\S]*?```/g," code block ").replace(/[#*`_~\[\]()]/g,"").replace(/<[^>]*>/g,"").replace(/\n+/g,". ");const u=new SpeechSynthesisUtterance(c);u.rate=1;const v=speechSynthesis.getVoices();const p=v.find(x=>x.name.includes("Google")&&x.lang.startsWith("en"))||v.find(x=>x.lang.startsWith("en"));if(p)u.voice=p;u.onend=cb;u.onerror=cb;speechSynthesis.speak(u);}
+function detectLang(t){const fr=/[àâéèêëïîôùûüçœæ]|(?:^|\s)(?:je|tu|il|elle|nous|vous|ils|elles|le|la|les|un|une|des|du|de|et|est|sont|pas|que|qui|dans|pour|avec|sur|par|mais|ou|donc|ni|car)\s/i;const es=/[áéíóúñ¿¡]|(?:^|\s)(?:el|ella|ellos|nosotros|pero|como|para|por|con|sin|sobre|entre|hasta)\s/i;const de=/[äöüß]|(?:^|\s)(?:ich|du|er|sie|wir|ihr|und|oder|aber|nicht|ein|eine|der|die|das)\s/i;if(fr.test(t))return"fr";if(es.test(t))return"es";if(de.test(t))return"de";return"en";}
+
+function speakT(t,cb){speechSynthesis.cancel();const c=t.replace(/```[\s\S]*?```/g," code block ").replace(/[#*`_~\[\]()]/g,"").replace(/<[^>]*>/g,"").replace(/\n+/g,". ");const lang=detectLang(c);const u=new SpeechSynthesisUtterance(c);u.rate=1;u.lang=lang;
+const v=speechSynthesis.getVoices();
+// Prefer natural/premium voices, then Google, then any match
+const pref=v.filter(x=>x.lang.startsWith(lang));
+const natural=pref.find(x=>/natural|premium|enhanced|neural|samantha|karen|daniel|thomas/i.test(x.name));
+const google=pref.find(x=>/google/i.test(x.name));
+const pick=natural||google||pref[0]||v.find(x=>x.lang.startsWith("en"));
+if(pick)u.voice=pick;u.onend=cb;u.onerror=cb;speechSynthesis.speak(u);}
 
 // Link warning modal
 function LinkModal({url,onClose,onGo}){
@@ -269,12 +303,34 @@ function App({user,onLogout}){
   const filteredCids=search?cids.filter(id=>(chats[id].title||"").toLowerCase().includes(search.toLowerCase())||chats[id].messages.some(m=>m.content&&m.content.toLowerCase().includes(search.toLowerCase()))):cids;
   useEffect(()=>{speechSynthesis.getVoices();},[]);
   useEffect(()=>{if(taR.current&&!IS_MOBILE)taR.current.focus();},[cur,msgs.length===0]);
+  // Fix mobile keyboard viewport
+  useEffect(()=>{if(!IS_MOBILE||!window.visualViewport)return;const vv=window.visualViewport;const h=()=>{document.documentElement.style.height=vv.height+"px";};vv.addEventListener("resize",h);vv.addEventListener("scroll",h);return()=>{vv.removeEventListener("resize",h);vv.removeEventListener("scroll",h);};},[]);
   useEffect(()=>{function gk(e){if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA"||e.target.isContentEditable||e.ctrlKey||e.metaKey||e.altKey)return;if(e.key.length===1&&taR.current){taR.current.focus();}}document.addEventListener("keydown",gk);return()=>document.removeEventListener("keydown",gk);},[]);
   useEffect(()=>{const h=e=>{if(mR.current&&!mR.current.contains(e.target))setPm(false);};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[]);
 
-  // Load/save localStorage
+  // Load/save localStorage + cloud sync
   useEffect(()=>{try{const d=localStorage.getItem("sx-chats");if(d)setChats(JSON.parse(d));}catch{}},[]);
-  useEffect(()=>{clearTimeout(svT.current);svT.current=setTimeout(()=>{try{const s={};for(const[k,v]of Object.entries(chats))if(v.messages.length>0)s[k]=v;localStorage.setItem("sx-chats",JSON.stringify(s));}catch{}},800);},[chats]);
+  useEffect(()=>{
+    if(!db||!user?.email||user.email==="guest")return;
+    // Load from cloud on login
+    db.collection("users").doc(user.email).get().then(doc=>{
+      if(doc.exists&&doc.data().chats){
+        const cloud=doc.data().chats;
+        setChats(prev=>{
+          // Merge: keep whichever has more messages per chat
+          const merged={...prev};
+          for(const[k,v]of Object.entries(cloud)){
+            if(!merged[k]||v.messages.length>merged[k].messages.length)merged[k]=v;
+          }
+          return merged;
+        });
+      }
+    }).catch(()=>{});
+  },[user]);
+  useEffect(()=>{clearTimeout(svT.current);svT.current=setTimeout(()=>{try{const s={};for(const[k,v]of Object.entries(chats))if(v.messages.length>0)s[k]=v;localStorage.setItem("sx-chats",JSON.stringify(s));
+    // Cloud save
+    if(db&&user?.email&&user.email!=="guest"){db.collection("users").doc(user.email).set({chats:s,updated:Date.now()},{merge:true}).catch(()=>{});}
+  }catch{}},1200);},[chats]);
 
   function openLink(url){if(localStorage.getItem("sx-skip-link")==="1"){window.open(url,"_blank");}else{setLinkUrl(url);}}
   function fresh(){setCur(null);setInput("");setFiles([]);setMode(null);if(IS_MOBILE)setSb(false);}
@@ -370,7 +426,7 @@ function App({user,onLogout}){
           return<div key={i} style={{display:"flex",gap:10,maxWidth:820,width:"100%",margin:"0 auto",flexDirection:ai?"row":"row-reverse",animation:"mi .3s ease"}}>
             {ai?<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"linear-gradient(135deg,#00f0c0,#a78bfa)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:"#0a0e17",alignSelf:"flex-start"}}>SX</div>:<div style={{width:28,height:28,borderRadius:7,flexShrink:0,background:"#111827",border:"1px solid #1e293b",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:600,color:"#94a3b8",alignSelf:"flex-start"}}>You</div>}
             <div style={{maxWidth:"calc(100% - 44px)",minWidth:0}}>
-              {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:6,overflow:"hidden",border:"1px solid #1e293b"}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:180,maxHeight:130,display:"block"}}/>:<div style={{padding:"6px 10px",background:"#111827",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
+              {!ai&&msg.files?.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap"}}>{msg.files.map((f,fi)=><div key={fi} style={{borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",cursor:"pointer"}} onClick={()=>{if(f.preview)window.open(f.preview,"_blank");}}>{f.preview?<img src={f.preview} alt="" style={{maxWidth:180,maxHeight:130,display:"block"}}/>:<div style={{padding:"6px 10px",background:"#111827",fontSize:11,color:"#94a3b8",display:"flex",alignItems:"center",gap:4}}><Ic.Fl/>{f.name}</div>}</div>)}</div>}
               <div className={ai?"mc":""} style={{padding:"12px 16px",borderRadius:12,lineHeight:1.7,fontSize:14,background:ai?"#111827":"linear-gradient(135deg,rgba(0,240,192,.06),rgba(0,240,192,.03))",border:ai?"1px solid #1e293b":"1px solid rgba(0,240,192,.15)",userSelect:"text",wordBreak:"break-word"}}>
                 {typ?<div style={{display:"flex",alignItems:"center",gap:5,height:24}}>{[0,1,2].map(j=><span key={j} style={{width:6,height:6,borderRadius:"50%",background:"#00f0c0",display:"block",animation:"dotB 1.4s ease-in-out infinite "+j*.16+"s"}}/>)}</div>:ai?<MsgHtml content={msg.content} onLink={openLink} onView={f=>setViewF(f)}/>:<span style={{whiteSpace:"pre-wrap"}}>{msg.content}</span>}
               </div>
@@ -393,7 +449,7 @@ function App({user,onLogout}){
             {MODES.map((m,i)=><button key={i} className={"mc2"+(mode?.label===m.label?" on":"")} onClick={()=>setMode(mode?.label===m.label?null:m)}><span style={{fontSize:12}}>{m.icon}</span>{m.label}</button>)}
             <button className={"mc2"+(et?" on":"")} onClick={()=>setEt(!et)} style={et?{borderColor:"rgba(167,139,250,.4)",color:"#a78bfa",background:"rgba(167,139,250,.06)"}:{}}><span style={{fontSize:12}}>🧠</span>Think</button>
           </div>
-          {files.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap",justifyContent:"center"}}>{files.map((f,i)=><div key={i} style={{position:"relative",borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",background:"#111827"}}>{f.preview?<img src={f.preview} alt="" style={{width:50,height:50,objectFit:"cover",display:"block"}}/>:<div style={{padding:"6px 20px 6px 8px",fontSize:10,color:"#94a3b8",display:"flex",alignItems:"center",gap:3}}><Ic.Fl/>{f.name.slice(0,16)}</div>}<button onClick={()=>setFiles(p=>p.filter((_,j)=>j!==i))} style={{position:"absolute",top:1,right:1,width:16,height:16,borderRadius:3,background:"rgba(0,0,0,.7)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#94a3b8"}}><Ic.X/></button></div>)}</div>}
+          {files.length>0&&<div style={{display:"flex",gap:6,marginBottom:6,flexWrap:"wrap",justifyContent:"center"}}>{files.map((f,i)=><div key={i} style={{position:"relative",borderRadius:6,overflow:"hidden",border:"1px solid #1e293b",background:"#111827",cursor:"pointer"}} onClick={()=>{if(f.preview)window.open(f.preview,"_blank");}}>{f.preview?<img src={f.preview} alt="" style={{width:50,height:50,objectFit:"cover",display:"block"}}/>:<div style={{padding:"6px 20px 6px 8px",fontSize:10,color:"#94a3b8",display:"flex",alignItems:"center",gap:3}}><Ic.Fl/>{f.name.slice(0,16)}</div>}<button onClick={e=>{e.stopPropagation();setFiles(p=>p.filter((_,j)=>j!==i));}} style={{position:"absolute",top:1,right:1,width:16,height:16,borderRadius:3,background:"rgba(0,0,0,.7)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:"#94a3b8"}}><Ic.X/></button></div>)}</div>}
           <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
             <div ref={mR} style={{position:"relative",flexShrink:0,height:BTN,display:"flex",alignItems:"center"}}>
               <button onClick={()=>setPm(!pm)} style={{width:BTN,height:BTN,borderRadius:12,background:"#111827",border:"1px solid #1e293b",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",color:pm?"#00f0c0":"#64748b",transition:".15s",transform:pm?"rotate(45deg)":"none"}}><Ic.Pls/></button>
