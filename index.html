@@ -114,14 +114,14 @@ const IS_MOBILE=window.innerWidth<=768;
 const API=window.location.hostname==="localhost"||window.location.protocol==="file:"?"https://api.anthropic.com/v1/messages":"/api/chat";
 const BTN=42;
 const MODELS=[
-  {id:"claude-opus-4-6",nm:"Core 4.6",desc:"The most efficient for ambitious tasks.",c:"#a78bfa",bg:"#a78bfa20",locked:true},
-  {id:"claude-sonnet-4-6",nm:"Pulse 4.6",desc:"The most effective for everyday tasks.",c:"#00f0c0",bg:"#00f0c020"},
-  {id:"claude-sonnet-4-5-20250929",nm:"Pulse 4.5",desc:"Great balance of speed and intelligence.",c:"#34d399",bg:"#34d39920"},
-  {id:"claude-haiku-4-5-20251001",nm:"Spark 4.5",desc:"The fastest way to get quick answers.",c:"#60a5fa",bg:"#60a5fa20"},
+  {id:"claude-opus-4-6",nm:"Core 3.6",desc:"The most efficient for ambitious tasks.",c:"#a78bfa",bg:"#a78bfa20",locked:true},
+  {id:"claude-sonnet-4-6",nm:"Pulse 3.6",desc:"The most effective for everyday tasks.",c:"#00f0c0",bg:"#00f0c020"},
+  {id:"claude-sonnet-4-5-20250929",nm:"Pulse 3.5",desc:"Great balance of speed and intelligence.",c:"#34d399",bg:"#34d39920"},
+  {id:"claude-haiku-4-5-20251001",nm:"Spark 3.5",desc:"The fastest way to get quick answers.",c:"#60a5fa",bg:"#60a5fa20"},
 ];
 const MODES=[{icon:"</>",label:"Code",prompt:"Focus on writing clean, efficient code with explanations."},{icon:"✏️",label:"Write",prompt:"Focus on creative and professional writing."},{icon:"📚",label:"Learn",prompt:"Explain concepts clearly with examples."}];
 const SUGS=[{icon:"⚡",text:"Write a Python web scraper",p:"Write a Python script that scrapes a website and exports data to CSV"},{icon:"📘",text:"Explain async/await in JS",p:"Explain how async/await works in JavaScript with examples"},{icon:"🔧",text:"Help me debug my code",p:"Debug this code and explain what's wrong with it"},{icon:"🏗️",text:"Design a REST API",p:"Design a REST API for a task management app with authentication"}];
-const SYS=`You are an AI assistant called SynthEx, made by Slipail. Your models are Core 4.6, Pulse 4.6, Pulse 4.5, and Spark 4.5. Use SynthEx names instead of original names. Never mention Claude or Anthropic.
+const SYS=`You are an AI assistant called SynthEx, made by Slipail. Your models are Core 3.6, Pulse 3.6, Pulse 3.5, and Spark 3.5. Use SynthEx names instead of original names. Never mention Claude or Anthropic.
 
 Be concise. Give short, direct answers. Don't over-explain or add unnecessary context. Match the length and effort to the question — simple questions get short answers.
 
@@ -160,37 +160,39 @@ function dlFile(n,c){
   const ext=n.split(".").pop().toLowerCase();
   if(ext==="pdf"){
     const{jsPDF}=window.jspdf;
-    // Create visible iframe to render HTML
     const iframe=document.createElement("iframe");
-    iframe.style.cssText="position:fixed;top:0;left:0;width:794px;height:1123px;opacity:0.01;z-index:-1;border:none;";
+    iframe.style.cssText="position:fixed;top:0;left:0;width:794px;height:10000px;opacity:0.01;z-index:-1;border:none;";
     document.body.appendChild(iframe);
     const idoc=iframe.contentDocument;
-    // Inject white background wrapper
-    const wrapped='<!DOCTYPE html><html><head><style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{margin:0;padding:20px;background:#fff;color:#000;font-family:system-ui,sans-serif}</style></head><body>'+c.replace(/<html[^>]*>|<\/html>|<head>[\s\S]*?<\/head>|<!DOCTYPE[^>]*>/gi,'').replace(/<body[^>]*>/gi,'').replace(/<\/body>/gi,'')+'</body></html>';
+    // Force white background, strip dark themes, ensure proper layout
+    const styleMatch=c.match(/<style[^>]*>([\s\S]*?)<\/style>/gi)||[];
+    const styles=styleMatch.map(s=>s).join("\n");
+    const bodyMatch=c.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const content=bodyMatch?bodyMatch[1]:c.replace(/<html[^>]*>|<\/html>|<head>[\s\S]*?<\/head>|<!DOCTYPE[^>]*>/gi,'').replace(/<body[^>]*>/gi,'').replace(/<\/body>/gi,'');
+    const wrapped='<!DOCTYPE html><html><head>'+styles+'<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{margin:0;padding:40px;background:#fff!important;color:#000;font-family:system-ui,sans-serif;width:714px}</style></head><body>'+content+'</body></html>';
     idoc.open();idoc.write(wrapped);idoc.close();
     setTimeout(async()=>{
       try{
         const body=idoc.body;
         const totalH=body.scrollHeight;
-        const pageW=794;const pageH=1123;const margin=20;
-        const usableH=pageH-margin*2;
-        const canvas=await html2canvas(body,{scale:2,useCORS:true,logging:false,width:pageW,windowWidth:pageW,height:totalH,windowHeight:totalH,backgroundColor:"#ffffff"});
-        const pdf=new jsPDF("p","px",[pageW,pageH]);
+        const pageW=794;const pageH=1123;const margin=40;
+        const usableH=pageH-(margin*2);
+        const canvas=await html2canvas(body,{scale:2,useCORS:true,logging:false,width:714,windowWidth:714,height:totalH,windowHeight:totalH,backgroundColor:"#ffffff"});
+        const pdf=new jsPDF({orientation:"p",unit:"px",format:[pageW,pageH]});
         const imgData=canvas.toDataURL("image/jpeg",0.95);
-        const imgW=pageW-margin*2;const imgH=canvas.height*(imgW/canvas.width);
-        let y=margin;let page=0;
-        while(y-margin<imgH){
-          if(page>0)pdf.addPage();
-          pdf.addImage(imgData,"JPEG",margin,margin-(page*(usableH)),imgW,imgH);
-          y+=usableH;page++;
+        const imgW=714;const imgH=canvas.height*(imgW/canvas.width);
+        const totalPages=Math.ceil(imgH/usableH);
+        for(let p=0;p<totalPages;p++){
+          if(p>0)pdf.addPage();
+          pdf.addImage(imgData,"JPEG",margin,margin-(p*usableH),imgW,imgH);
         }
         pdf.save(n);
-      }catch(e){console.error("PDF gen error:",e);
-        // Fallback: download as HTML
+      }catch(e){
+        console.error("PDF error:",e);
         const b=new Blob([c],{type:"text/html"});const u=URL.createObjectURL(b);const a=document.createElement("a");a.href=u;a.download=n.replace(".pdf",".html");a.click();URL.revokeObjectURL(u);
       }
       document.body.removeChild(iframe);
-    },800);
+    },1000);
     return;
   }
   if(ext==="xlsx"||ext==="xls"){
@@ -218,8 +220,17 @@ function dlFile(n,c){
 
 function buildPreview(name,code){
   const ext=name.split(".").pop().toLowerCase();
-  // HTML/SVG/PDF/XLSX — render directly (AI generates these as HTML)
-  if(["html","htm","pdf","svg","xlsx","xls"].includes(ext))return code;
+  // HTML/SVG — render directly
+  if(["html","htm","svg","xlsx","xls"].includes(ext))return code;
+  // PDF — render with paginated view showing page breaks
+  if(ext==="pdf"){
+    // Strip existing html/head/body wrappers, extract styles and content
+    const styleMatch=code.match(/<style[^>]*>([\s\S]*?)<\/style>/gi)||[];
+    const styles=styleMatch.map(s=>s).join("\n");
+    const bodyMatch=code.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    const content=bodyMatch?bodyMatch[1]:code.replace(/<html[^>]*>|<\/html>|<head>[\s\S]*?<\/head>|<!DOCTYPE[^>]*>/gi,'').replace(/<body[^>]*>/gi,'').replace(/<\/body>/gi,'');
+    return'<!DOCTYPE html><html><head>'+styles+'<style>*{box-sizing:border-box}body{margin:0;padding:20px 40px;background:#525659;font-family:system-ui,sans-serif;min-height:100vh}.page{width:794px;min-height:1123px;margin:0 auto 20px;padding:60px 60px;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.3);color:#000;position:relative;overflow:hidden;page-break-after:always}.page-num{position:absolute;bottom:20px;right:30px;font-size:10px;color:#999}@media print{body{background:#fff;padding:0}.page{box-shadow:none;margin:0}}</style></head><body><div class="page" id="page1">'+content+'</div><script>document.addEventListener("DOMContentLoaded",function(){var pages=document.querySelectorAll(".page");var num=1;pages.forEach(function(p){while(p.scrollHeight>1123&&num<20){var overflow=document.createElement("div");overflow.className="page";overflow.id="page"+(num+1);var children=Array.from(p.children);var moved=false;for(var i=children.length-1;i>=0;i--){if(p.scrollHeight<=1123)break;overflow.insertBefore(children[i],overflow.firstChild);moved=true;}if(!moved)break;p.parentNode.insertBefore(overflow,p.nextSibling);num++;}});document.querySelectorAll(".page").forEach(function(p,i){var pn=document.createElement("div");pn.className="page-num";pn.textContent="Page "+(i+1);p.appendChild(pn);});});<'+'/script></body></html>';
+  }
   // Markdown — render to styled HTML
   if(["md","markdown"].includes(ext)){
     let md=code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
@@ -251,7 +262,8 @@ function buildPreview(name,code){
   if(runnable.includes(ext)){
     const esc=code.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
     if(ext==="py"){
-      return'<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0}body{background:#1e1e2e;color:#cdd6f4;font-family:monospace;display:flex;flex-direction:column;height:100vh}.toolbar{padding:8px 12px;background:#11111b;border-bottom:1px solid #313244;display:flex;align-items:center;gap:8px}.run-btn{background:#a6e3a1;color:#1e1e2e;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;font-family:system-ui}.run-btn:hover{background:#94e2d5}.status{font-size:11px;color:#6c7086}.code-area{flex:1;overflow:auto;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap}.console{background:#11111b;border-top:1px solid #313244;min-height:120px;max-height:40vh;overflow:auto;padding:10px 12px;font-size:12px;line-height:1.5}.console-header{font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.out{color:#a6e3a1}.err{color:#f38ba8}</style></head><body><div class="toolbar"><button class="run-btn" id="runBtn" onclick="runCode()">▶ Run</button><span class="status" id="status">Ready</span></div><div class="code-area">'+esc+'</div><div class="console"><div class="console-header">Console Output</div><pre id="output" style="margin:0;white-space:pre-wrap"></pre></div><script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"><'+'/script><script>let pyodide=null;const out=document.getElementById("output");const status=document.getElementById("status");const btn=document.getElementById("runBtn");async function runCode(){btn.disabled=true;btn.textContent="Loading...";out.innerHTML="";try{if(!pyodide){status.textContent="Loading Python...";pyodide=await loadPyodide();status.textContent="Python ready";}btn.textContent="Running...";pyodide.runPython("import sys;from io import StringIO;sys.stdout=StringIO();sys.stderr=StringIO()");pyodide.runPython('+JSON.stringify(code)+');const stdout=pyodide.runPython("sys.stdout.getvalue()");const stderr=pyodide.runPython("sys.stderr.getvalue()");if(stdout)out.innerHTML+="<span class=\\"out\\">"+stdout.replace(/</g,"&lt;")+"</span>";if(stderr)out.innerHTML+="<span class=\\"err\\">"+stderr.replace(/</g,"&lt;")+"</span>";if(!stdout&&!stderr)out.innerHTML="<span class=\\"out\\">Program completed (no output)</span>";}catch(e){out.innerHTML="<span class=\\"err\\">"+String(e).replace(/</g,"&lt;")+"</span>";}btn.disabled=false;btn.textContent="▶ Run";}<'+'/script></body></html>';
+      const codeStr=JSON.stringify(code);
+      return'<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0}body{background:#1e1e2e;color:#cdd6f4;font-family:monospace;display:flex;flex-direction:column;height:100vh}.toolbar{padding:8px 12px;background:#11111b;border-bottom:1px solid #313244;display:flex;align-items:center;gap:8px}.run-btn{background:#a6e3a1;color:#1e1e2e;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;font-family:system-ui}.run-btn:hover{background:#94e2d5}.status{font-size:11px;color:#6c7086}.code-area{flex:1;overflow:auto;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap}.console{background:#11111b;border-top:1px solid #313244;min-height:150px;max-height:45vh;overflow:auto;padding:10px 12px;font-size:12px;line-height:1.5}.ch{font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.out{color:#a6e3a1}.err{color:#f38ba8}.warn{color:#f9e2af}</style></head><body><div class="toolbar"><button class="run-btn" id="runBtn" onclick="runCode()">▶ Run</button><span class="status" id="status">Ready</span></div><div class="code-area">'+esc+'</div><div class="console"><div class="ch">Console Output</div><pre id="output" style="margin:0;white-space:pre-wrap"></pre></div><script src="https://cdn.jsdelivr.net/pyodide/v0.24.1/full/pyodide.js"><'+'/script><script>let pyodide=null;const out=document.getElementById("output");const status=document.getElementById("status");const btn=document.getElementById("runBtn");const code='+codeStr+';function log(cls,msg){out.innerHTML+="<span class=\\""+cls+"\\">"+String(msg).replace(/</g,"&lt;")+"\\n</span>";}async function runCode(){btn.disabled=true;out.innerHTML="";try{if(!pyodide){btn.textContent="Loading Python...";status.textContent="Downloading runtime...";pyodide=await loadPyodide();await pyodide.loadPackage("micropip");status.textContent="Python ready";}btn.textContent="Installing packages...";const imports=code.match(/^(?:import|from)\\s+([a-zA-Z_][a-zA-Z0-9_]*)/gm)||[];const pkgs=[...new Set(imports.map(s=>s.replace(/^(?:import|from)\\s+/,"")))];const builtin=["sys","os","io","re","math","json","random","time","datetime","collections","itertools","functools","string","textwrap","pathlib","abc","typing","enum","dataclasses","copy","pprint","traceback","unittest","hashlib","base64","struct","array","bisect","heapq","statistics","decimal","fractions","operator","contextlib","warnings","types","inspect","dis","gc","weakref","pickle","shelve","csv","configparser","argparse","logging","threading","multiprocessing","subprocess","socket","http","urllib","email","html","xml","sqlite3","zipfile","gzip","tarfile","shutil","tempfile","glob","fnmatch","secrets","hmac","calendar","locale","gettext","unicodedata","codecs","difflib","ast","token","tokenize","keyword","numbers","cmath","wave","colorsys","turtle","__future__","builtins","signal","errno","ctypes","platform","posixpath"];const toInstall=pkgs.filter(p=>!builtin.includes(p));if(toInstall.length>0){log("warn","Installing: "+toInstall.join(", ")+"...");const micropip=pyodide.pyimport("micropip");for(const pkg of toInstall){try{await micropip.install(pkg);log("out","✓ Installed "+pkg);}catch{log("warn","⚠ Could not install "+pkg+" (may be built-in or unavailable)");}}}btn.textContent="Running...";status.textContent="Running...";pyodide.runPython("import sys;from io import StringIO;sys.stdout=StringIO();sys.stderr=StringIO()");pyodide.runPython(code);const stdout=pyodide.runPython("sys.stdout.getvalue()");const stderr=pyodide.runPython("sys.stderr.getvalue()");if(stdout)log("out",stdout);if(stderr)log("err",stderr);if(!stdout&&!stderr)log("out","Program completed (no output)");status.textContent="Done";}catch(e){log("err",String(e));status.textContent="Error";}btn.disabled=false;btn.textContent="▶ Run";}<'+'/script></body></html>';
     }
     if(ext==="js"||ext==="javascript"||ext==="ts"||ext==="typescript"){
       return'<!DOCTYPE html><html><head><style>*{box-sizing:border-box;margin:0}body{background:#1e1e2e;color:#cdd6f4;font-family:monospace;display:flex;flex-direction:column;height:100vh}.toolbar{padding:8px 12px;background:#11111b;border-bottom:1px solid #313244;display:flex;align-items:center;gap:8px}.run-btn{background:#89b4fa;color:#1e1e2e;border:none;padding:6px 16px;border-radius:6px;font-weight:700;cursor:pointer;font-size:12px;font-family:system-ui}.run-btn:hover{background:#74c7ec}.code-area{flex:1;overflow:auto;padding:12px;font-size:13px;line-height:1.6;white-space:pre-wrap}.console{background:#11111b;border-top:1px solid #313244;min-height:120px;max-height:40vh;overflow:auto;padding:10px 12px;font-size:12px;line-height:1.5}.console-header{font-size:10px;color:#6c7086;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px}.out{color:#a6e3a1}.err{color:#f38ba8}</style></head><body><div class="toolbar"><button class="run-btn" onclick="runCode()">▶ Run</button></div><div class="code-area">'+esc+'</div><div class="console"><div class="console-header">Console Output</div><pre id="output" style="margin:0;white-space:pre-wrap"></pre></div><script>function runCode(){const out=document.getElementById("output");out.innerHTML="";const origLog=console.log;const origErr=console.error;const logs=[];console.log=(...a)=>{logs.push("<span class=\\"out\\">"+a.map(x=>typeof x==="object"?JSON.stringify(x,null,2):String(x)).join(" ").replace(/</g,"&lt;")+"</span>");};console.error=(...a)=>{logs.push("<span class=\\"err\\">"+a.join(" ").replace(/</g,"&lt;")+"</span>");};try{const result=new Function('+JSON.stringify(code)+')();if(result!==undefined)logs.push("<span class=\\"out\\">→ "+String(result).replace(/</g,"&lt;")+"</span>");}catch(e){logs.push("<span class=\\"err\\">"+String(e).replace(/</g,"&lt;")+"</span>");}console.log=origLog;console.error=origErr;out.innerHTML=logs.join("\\n")||"<span class=\\"out\\">Program completed (no output)</span>";}<'+'/script></body></html>';
